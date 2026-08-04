@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Annuaire du Personnel</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --gray-100: #f5f5f3; --gray-200: #e8e8e4; --gray-400: #a0a09a;
+      --gray-600: #5f5e5a; --gray-900: #1a1a18;
+      --radius-md: 8px; --radius-lg: 12px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05);
+    }
+
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      background: var(--gray-100);
+      color: var(--gray-900);
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .top-bar {
+      background: #fff;
+      border-bottom: 0.5px solid var(--gray-200);
+      padding: 0 2rem;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .top-bar-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 500;
+      font-size: 16px;
+    }
+    .top-bar-brand i { font-size: 20px; color: #185FA5; }
+    .top-bar-sub { font-size: 13px; color: var(--gray-400); margin-left: 4px; }
+
+    /* Layout */
+    .container { max-width: 1150px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+    /* Controls */
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+    .controls input, .controls select {
+      height: 38px;
+      padding: 0 12px;
+      border: 0.5px solid var(--gray-200);
+      border-radius: var(--radius-md);
+      background: #fff;
+      color: var(--gray-900);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .controls input:focus, .controls select:focus { border-color: #378ADD; box-shadow: 0 0 0 3px rgba(55,138,221,0.12); }
+    #search { width: 240px; }
+    .controls-right { margin-left: auto; display: flex; gap: 8px; }
+    .btn {
+      height: 38px;
+      padding: 0 16px;
+      border: 0.5px solid var(--gray-200);
+      border-radius: var(--radius-md);
+      background: #fff;
+      color: var(--gray-900);
+      font-size: 14px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      transition: background 0.12s;
+    }
+    .btn:hover { background: var(--gray-100); }
+    .btn-primary {
+      background: #185FA5;
+      border-color: #185FA5;
+      color: #fff;
+    }
+    .btn-primary:hover { background: #0C447C; border-color: #0C447C; }
+    .btn-sm { height: 30px; font-size: 12px; padding: 0 10px; }
+    .btn-danger { background: #FCEBEB; border-color: #F7C1C1; color: #791F1F; }
+    .btn-danger:hover { background: #F7C1C1; }
+
+    /* Stats */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      margin-bottom: 1.75rem;
+    }
+    .stat {
+      background: #fff;
+      border: 0.5px solid var(--gray-200);
+      border-radius: var(--radius-lg);
+      padding: 14px 18px;
+    }
+    .stat-label { font-size: 12px; color: var(--gray-400); margin-bottom: 4px; }
+    .stat-value { font-size: 24px; font-weight: 500; }
+
+    /* Grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+      gap: 12px;
+    }
+    .card {
+      background: #fff;
+      border: 0.5px solid var(--gray-200);
+      border-radius: var(--radius-lg);
+      padding: 1rem 1.25rem;
+      box-shadow: var(--shadow);
+      transition: box-shadow 0.15s;
+    }
+    .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .avatar {
+      width: 44px; height: 44px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 500; font-size: 14px; flex-shrink: 0;
+    }
+    .card-name { font-weight: 500; font-size: 15px; }
+    .card-fonction { font-size: 12px; color: var(--gray-400); margin-top: 1px; }
+    .badge-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 11px; padding: 3px 8px;
+      border-radius: var(--radius-md);
+      background: var(--gray-100);
+      color: var(--gray-600);
+      border: 0.5px solid var(--gray-200);
+      font-weight: 500;
+    }
+    .badge-site {
+      background: #E6F1FB; color: #0C447C; border-color: #B5D4F4;
+    }
+    .card-info {
+      font-size: 13px; color: var(--gray-400);
+      display: flex; align-items: center; gap: 6px; margin-top: 6px;
+    }
+    .card-info i { font-size: 14px; flex-shrink: 0; }
+    .card-info span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .card-comment {
+      font-size: 12px; color: var(--gray-600);
+      background: var(--gray-100); border-radius: var(--radius-md);
+      padding: 6px 10px; margin-top: 8px;
+      font-style: italic;
+    }
+    .card-actions {
+      display: flex; gap: 6px;
+      margin-top: 12px; padding-top: 12px;
+      border-top: 0.5px solid var(--gray-200);
+    }
+    .card-actions .btn { flex: 1; justify-content: center; }
+
+    /* Empty */
+    .empty {
+      grid-column: 1/-1; text-align: center;
+      padding: 4rem; color: var(--gray-400);
+    }
+    .empty i { font-size: 40px; display: block; margin-bottom: 12px; }
+
+    /* Modal */
+    .modal-bg {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.35);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; padding: 1rem;
+      overflow-y: auto;
+    }
+    .modal {
+      background: #fff;
+      border: 0.5px solid var(--gray-200);
+      border-radius: var(--radius-lg);
+      padding: 1.75rem;
+      width: 100%; max-width: 460px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+      margin: auto;
+    }
+    .modal h2 { font-size: 17px; font-weight: 500; margin-bottom: 1.25rem; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .field { margin-bottom: 12px; }
+    .field label { display: block; font-size: 13px; color: var(--gray-600); margin-bottom: 5px; }
+    .field input, .field select, .field textarea {
+      width: 100%; height: 38px; padding: 0 12px;
+      border: 0.5px solid var(--gray-200);
+      border-radius: var(--radius-md);
+      font-size: 14px; outline: none;
+      transition: border-color 0.15s;
+      font-family: inherit;
+    }
+    .field textarea { height: 64px; padding: 8px 12px; resize: vertical; }
+    .field input:focus, .field select:focus, .field textarea:focus { border-color: #378ADD; box-shadow: 0 0 0 3px rgba(55,138,221,0.12); }
+    .field-error { border-color: #E5484D !important; }
+    .field-hint { font-size: 11px; color: var(--gray-400); margin-top: 4px; }
+    .field-hint.error { color: #E5484D; }
+    .modal-actions { display: flex; gap: 8px; margin-top: 1.25rem; justify-content: flex-end; }
+
+    /* Notice */
+    .notice {
+      background: #E6F1FB; border: 0.5px solid #B5D4F4;
+      border-radius: var(--radius-md); padding: 10px 14px;
+      font-size: 13px; color: #0C447C;
+      display: flex; align-items: flex-start; gap: 8px;
+      margin-bottom: 1.5rem;
+    }
+    .notice i { flex-shrink: 0; margin-top: 1px; }
+
+    @media (max-width: 600px) {
+      .top-bar { padding: 0 1rem; }
+      .container { padding: 1rem; }
+      #search { width: 100%; }
+      .controls { flex-direction: column; }
+      .controls-right { margin-left: 0; }
+      .form-row, .form-row-3 { grid-template-columns: 1fr; }
+    }
+
+    /* Vue listing imprimable */
+    .print-only { display: none; }
+    .listing-header { margin-bottom: 20px; border-bottom: 2px solid #1a1a18; padding-bottom: 10px; }
+    .listing-header h1 { font-size: 20px; margin-bottom: 4px; }
+    .listing-header .listing-meta { font-size: 12px; color: #5f5e5a; }
+    .listing-service { margin-bottom: 18px; }
+    .listing-service h2 {
+      font-size: 14px; background: #f0f0ee; padding: 6px 10px;
+      border-left: 3px solid #185FA5; margin-bottom: 6px;
+    }
+    .listing-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .listing-table th, .listing-table td {
+      text-align: left; padding: 5px 8px; border-bottom: 1px solid #e0e0dc;
+    }
+    .listing-table th { font-weight: 600; color: #5f5e5a; font-size: 11px; text-transform: uppercase; }
+
+    @media print {
+      body * { visibility: hidden; }
+      #print-view, #print-view * { visibility: visible; }
+      #print-view { display: block !important; position: absolute; top: 0; left: 0; width: 100%; }
+      .modal-bg { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="top-bar-brand">
+    <i class="ti ti-building-hospital"></i>
+    Annuaire du Personnel
+    <span class="top-bar-sub">— Intranet</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="notice" id="notice">
+    <i class="ti ti-info-circle"></i>
+    <span>Cet annuaire est connecté à Google Sheets : toutes les modifications sont visibles immédiatement par tous les utilisateurs.</span>
+  </div>
+
+  <div class="notice" id="loading-state" style="display:none">
+    <i class="ti ti-loader-2"></i>
+    <span>Chargement des données depuis Google Sheets…</span>
+  </div>
+
+  <div class="notice" id="error-state" style="display:none; background:#FCEBEB; border-color:#F7C1C1; color:#791F1F;">
+    <i class="ti ti-alert-triangle"></i>
+    <span></span>
+  </div>
+
+  <div class="controls">
+    <input type="text" id="search" placeholder="Rechercher par nom, fonction, n° abrégé…" oninput="applyFilters()">
+    <select id="filterSite" onchange="applyFilters()">
+      <option value="">Tous les sites</option>
+      <option value="Montdidier">Montdidier</option>
+      <option value="Roye">Roye</option>
+    </select>
+    <select id="filterService" onchange="applyFilters()">
+      <option value="">Tous les services</option>
+    </select>
+    <div class="controls-right">
+      <button class="btn" onclick="openPrintModal()">
+        <i class="ti ti-printer"></i> Imprimer / PDF
+      </button>
+      <button class="btn btn-primary" onclick="openAdd()">
+        <i class="ti ti-plus"></i> Ajouter un membre
+      </button>
+    </div>
+  </div>
+
+  <div class="stats" id="stats"></div>
+  <div class="grid" id="grid"></div>
+
+</div>
+
+<div class="modal-bg" id="modal" style="display:none">
+  <div class="modal">
+    <h2 id="modal-title">Nouvelle fiche</h2>
+
+    <div class="form-row">
+      <div class="field">
+        <label>Site *</label>
+        <select id="f-site">
+          <option value="Montdidier">Montdidier</option>
+          <option value="Roye">Roye</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Titre</label>
+        <select id="f-titre">
+          <option value="Monsieur">Monsieur</option>
+          <option value="Madame">Madame</option>
+          <option value="Docteur">Docteur</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="field"><label>Prénom *</label><input type="text" id="f-prenom" placeholder="Prénom"></div>
+      <div class="field"><label>Nom *</label><input type="text" id="f-nom" placeholder="Nom"></div>
+    </div>
+
+    <div class="form-row">
+      <div class="field"><label>Service</label><input type="text" id="f-service" placeholder="Ex : Cardiologie"></div>
+      <div class="field"><label>Fonction</label><input type="text" id="f-fonction" placeholder="Ex : Infirmier(e)"></div>
+    </div>
+
+    <div class="form-row">
+      <div class="field">
+        <label>Téléphone</label>
+        <input type="text" id="f-tel" placeholder="01 23 45 67 89" maxlength="14" oninput="formatPhoneInput(this)">
+        <div class="field-hint" id="f-tel-hint">Format français : 10 chiffres</div>
+      </div>
+      <div class="field">
+        <label>Numéro abrégé</label>
+        <input type="text" id="f-abrege" placeholder="1234" maxlength="4" inputmode="numeric" oninput="formatAbregeInput(this)">
+        <div class="field-hint" id="f-abrege-hint">4 chiffres</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Commentaire</label>
+      <textarea id="f-commentaire" placeholder="Notes, disponibilité, remarques…"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-primary" id="save-btn" onclick="saveModal()"><i class="ti ti-check"></i> Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="print-modal" style="display:none">
+  <div class="modal">
+    <h2>Imprimer le listing</h2>
+    <div class="field">
+      <label>Site à imprimer</label>
+      <select id="print-site">
+        <option value="Montdidier">Montdidier</option>
+        <option value="Roye">Roye</option>
+        <option value="">Tous les sites</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closePrintModal()">Annuler</button>
+      <button class="btn btn-primary" onclick="generatePrintView()"><i class="ti ti-printer"></i> Générer le listing</button>
+    </div>
+  </div>
+</div>
+
+<div id="print-view" class="print-only" style="display:none"></div>
+
+<script>
+// ============================================
+// CONFIGURATION — URL de votre Google Apps Script
+// ============================================
+const API_URL = "https://script.google.com/macros/s/AKfycbx78P_XgD3bsvtfumO7QluzVfQ_OzwE2aKxobABEZwfbuwsPtATj74QvBiA5CKMCLePjQ/exec";
+// ============================================
+
+const COLORS = [
+  {bg:"#E6F1FB",color:"#0C447C"},{bg:"#E1F5EE",color:"#085041"},
+  {bg:"#EEEDFE",color:"#3C3489"},{bg:"#FAECE7",color:"#712B13"},
+  {bg:"#FBEAF0",color:"#72243E"},{bg:"#FAEEDA",color:"#633806"},
+  {bg:"#EAF3DE",color:"#27500A"},{bg:"#FCEBEB",color:"#791F1F"}
+];
+
+let staff = [];
+let filtered = [];
+let editId = null; // id numérique de la ligne dans le Google Sheet
+let isSaving = false;
+
+async function loadData() {
+  showLoading(true);
+  showError('');
+  try {
+    const res = await fetch(API_URL);
+    const data = await res.json();
+    if (data && data.error) throw new Error(data.error);
+    staff = (data || []).map(normalizeRecord);
+    populateFilters();
+    applyFilters();
+  } catch (e) {
+    showError("Impossible de charger les données depuis Google Sheets. Vérifiez que le script est bien déployé et accessible. Détail : " + e.message);
+  } finally {
+    showLoading(false);
+  }
+}
+
+function normalizeRecord(r) {
+  return {
+    id: r.id,
+    site: r.site || '',
+    titre: r.titre || '',
+    prenom: r.prenom || '',
+    nom: r.nom || '',
+    service: r.service || '',
+    fonction: r.fonction || '',
+    tel: r.tel || '',
+    abrege: r.abrege ? String(r.abrege) : '',
+    commentaire: r.commentaire || ''
+  };
+}
+
+async function apiPost(payload) {
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // évite le preflight CORS avec Apps Script
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) throw new Error(`Erreur ${res.status}`);
+  const data = await res.json();
+  if (data && data.success === false) throw new Error(data.error || 'Erreur inconnue côté script');
+  return data;
+}
+
+function showLoading(on) {
+  if (on) {
+    document.getElementById('grid').innerHTML = `<div class="empty"><i class="ti ti-loader-2"></i>Chargement de l'annuaire…</div>`;
+  }
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-state');
+  if (!el) return;
+  if (msg) {
+    el.style.display = 'flex';
+    el.querySelector('span').textContent = msg;
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+function avatarColor(str) {
+  let h = 0;
+  for (const c of str) h = (h * 31 + c.charCodeAt(0)) % COLORS.length;
+  return COLORS[h];
+}
+
+function initials(p, n) {
+  return ((p||'')[0]||'').toUpperCase() + ((n||'')[0]||'').toUpperCase();
+}
+
+// Format phone number as French: 01 23 45 67 89
+function formatPhoneInput(el) {
+  let digits = el.value.replace(/\D/g, '').slice(0, 10);
+  let formatted = digits.replace(/(\d{2})(?=\d)/g, '$1 ').trim();
+  el.value = formatted;
+  const hint = document.getElementById('f-tel-hint');
+  if (digits.length > 0 && digits.length < 10) {
+    hint.textContent = `${digits.length}/10 chiffres`;
+    hint.classList.add('error');
+  } else {
+    hint.textContent = 'Format français : 10 chiffres';
+    hint.classList.remove('error');
+  }
+}
+
+function formatAbregeInput(el) {
+  el.value = el.value.replace(/\D/g, '').slice(0, 4);
+  const hint = document.getElementById('f-abrege-hint');
+  if (el.value.length > 0 && el.value.length < 4) {
+    hint.textContent = `${el.value.length}/4 chiffres`;
+    hint.classList.add('error');
+  } else {
+    hint.textContent = '4 chiffres';
+    hint.classList.remove('error');
+  }
+}
+
+function populateFilters() {
+  const services = [...new Set(staff.map(s => s.service).filter(Boolean))].sort();
+  const fSvc = document.getElementById('filterService');
+  const curSvc = fSvc.value;
+  fSvc.innerHTML = '<option value="">Tous les services</option>' +
+    services.map(s => `<option value="${escAttr(s)}"${curSvc===s?' selected':''}>${escHtml(s)}</option>`).join('');
+}
+
+function applyFilters() {
+  const q = document.getElementById('search').value.toLowerCase().trim();
+  const site = document.getElementById('filterSite').value;
+  const svc = document.getElementById('filterService').value;
+  filtered = staff.filter(s => {
+    const matchQ = !q || [s.nom,s.prenom,s.fonction,s.service,s.site,s.tel,s.abrege,s.commentaire,s.titre]
+      .join(' ').toLowerCase().includes(q);
+    const matchSite = !site || s.site === site;
+    const matchSvc = !svc || s.service === svc;
+    return matchQ && matchSite && matchSvc;
+  });
+  renderStats();
+  renderGrid();
+}
+
+function renderStats() {
+  const sites = [...new Set(staff.map(s => s.site).filter(Boolean))];
+  const services = [...new Set(staff.map(s => s.service).filter(Boolean))];
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><div class="stat-label">Total personnel</div><div class="stat-value">${staff.length}</div></div>
+    <div class="stat"><div class="stat-label">Sites</div><div class="stat-value">${sites.length}</div></div>
+    <div class="stat"><div class="stat-label">Services</div><div class="stat-value">${services.length}</div></div>
+    <div class="stat"><div class="stat-label">Résultats</div><div class="stat-value">${filtered.length}</div></div>
+  `;
+}
+
+function renderGrid() {
+  const grid = document.getElementById('grid');
+  if (!filtered.length) {
+    grid.innerHTML = `<div class="empty"><i class="ti ti-search"></i>Aucun résultat pour cette recherche</div>`;
+    return;
+  }
+  grid.innerHTML = filtered.map(s => {
+    const col = avatarColor((s.nom||'') + (s.prenom||''));
+    const displayName = `${s.titre ? s.titre + ' ' : ''}${escHtml(s.prenom)} ${escHtml(s.nom)}`;
+    return `<div class="card">
+      <div class="card-head">
+        <div class="avatar" style="background:${col.bg};color:${col.color}">${initials(s.prenom, s.nom)}</div>
+        <div>
+          <div class="card-name">${displayName}</div>
+          ${s.fonction ? `<div class="card-fonction">${escHtml(s.fonction)}</div>` : ''}
+        </div>
+      </div>
+      <div class="badge-row">
+        ${s.site ? `<span class="badge badge-site"><i class="ti ti-map-pin" style="font-size:12px"></i>${escHtml(s.site)}</span>` : ''}
+        ${s.service ? `<span class="badge"><i class="ti ti-building-hospital" style="font-size:12px"></i>${escHtml(s.service)}</span>` : ''}
+      </div>
+      ${s.tel ? `<div class="card-info"><i class="ti ti-phone"></i><span>${escHtml(s.tel)}</span></div>` : ''}
+      ${s.abrege ? `<div class="card-info"><i class="ti ti-pound"></i><span>Abrégé : ${escHtml(s.abrege)}</span></div>` : ''}
+      ${s.commentaire ? `<div class="card-comment">${escHtml(s.commentaire)}</div>` : ''}
+      <div class="card-actions">
+        <button class="btn btn-sm" onclick="openEdit(${s.id})"><i class="ti ti-edit"></i> Modifier</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteMember(${s.id})"><i class="ti ti-trash"></i> Supprimer</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function escHtml(str) {
+  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(str) { return escHtml(str); }
+
+function openAdd() {
+  editId = null;
+  document.getElementById('modal-title').textContent = 'Nouvelle fiche';
+  document.getElementById('f-site').value = 'Montdidier';
+  document.getElementById('f-titre').value = 'Monsieur';
+  document.getElementById('f-prenom').value = '';
+  document.getElementById('f-nom').value = '';
+  document.getElementById('f-service').value = '';
+  document.getElementById('f-fonction').value = '';
+  document.getElementById('f-tel').value = '';
+  document.getElementById('f-abrege').value = '';
+  document.getElementById('f-commentaire').value = '';
+  document.getElementById('f-tel-hint').textContent = 'Format français : 10 chiffres';
+  document.getElementById('f-tel-hint').classList.remove('error');
+  document.getElementById('f-abrege-hint').textContent = '4 chiffres';
+  document.getElementById('f-abrege-hint').classList.remove('error');
+  document.getElementById('modal').style.display = 'flex';
+  document.getElementById('f-prenom').focus();
+}
+
+function openEdit(id) {
+  editId = id;
+  const s = staff.find(x => String(x.id) === String(id));
+  if (!s) return;
+  document.getElementById('modal-title').textContent = 'Modifier la fiche';
+  document.getElementById('f-site').value = s.site || 'Montdidier';
+  document.getElementById('f-titre').value = s.titre || 'Monsieur';
+  document.getElementById('f-prenom').value = s.prenom || '';
+  document.getElementById('f-nom').value = s.nom || '';
+  document.getElementById('f-service').value = s.service || '';
+  document.getElementById('f-fonction').value = s.fonction || '';
+  document.getElementById('f-tel').value = s.tel || '';
+  document.getElementById('f-abrege').value = s.abrege || '';
+  document.getElementById('f-commentaire').value = s.commentaire || '';
+  document.getElementById('f-tel-hint').textContent = 'Format français : 10 chiffres';
+  document.getElementById('f-tel-hint').classList.remove('error');
+  document.getElementById('f-abrege-hint').textContent = '4 chiffres';
+  document.getElementById('f-abrege-hint').classList.remove('error');
+  document.getElementById('modal').style.display = 'flex';
+}
+
+function closeModal() {
+  document.getElementById('modal').style.display = 'none';
+}
+
+async function saveModal() {
+  const prenom = document.getElementById('f-prenom').value.trim();
+  const nom = document.getElementById('f-nom').value.trim();
+  const tel = document.getElementById('f-tel').value.trim();
+  const abrege = document.getElementById('f-abrege').value.trim();
+
+  if (!prenom || !nom) {
+    alert('Le prénom et le nom sont obligatoires.');
+    return;
+  }
+  const telDigits = tel.replace(/\D/g, '');
+  if (tel && telDigits.length !== 10) {
+    alert('Le numéro de téléphone doit contenir 10 chiffres (format français).');
+    return;
+  }
+  if (abrege && abrege.length !== 4) {
+    alert('Le numéro abrégé doit contenir exactement 4 chiffres.');
+    return;
+  }
+
+  const entry = {
+    site: document.getElementById('f-site').value,
+    titre: document.getElementById('f-titre').value,
+    prenom,
+    nom,
+    service: document.getElementById('f-service').value.trim(),
+    fonction: document.getElementById('f-fonction').value.trim(),
+    tel,
+    abrege,
+    commentaire: document.getElementById('f-commentaire').value.trim()
+  };
+
+  if (isSaving) return;
+  isSaving = true;
+  setSaveButtonLoading(true);
+
+  try {
+    if (editId != null) {
+      entry.id = editId;
+      await apiPost({ action: 'update', entry });
+    } else {
+      await apiPost({ action: 'add', entry });
+    }
+    closeModal();
+    await loadData();
+  } catch (e) {
+    alert("Erreur lors de l'enregistrement : " + e.message);
+  } finally {
+    isSaving = false;
+    setSaveButtonLoading(false);
+  }
+}
+
+function setSaveButtonLoading(on) {
+  const btn = document.getElementById('save-btn');
+  if (!btn) return;
+  btn.disabled = on;
+  btn.innerHTML = on
+    ? '<i class="ti ti-loader-2"></i> Enregistrement…'
+    : '<i class="ti ti-check"></i> Enregistrer';
+}
+
+async function deleteMember(id) {
+  const s = staff.find(x => String(x.id) === String(id));
+  if (!s) return;
+  if (!confirm(`Supprimer la fiche de ${s.prenom} ${s.nom} ?`)) return;
+  try {
+    await apiPost({ action: 'delete', id });
+    await loadData();
+  } catch (e) {
+    alert("Erreur lors de la suppression : " + e.message);
+  }
+}
+
+function openPrintModal() {
+  document.getElementById('print-modal').style.display = 'flex';
+}
+function closePrintModal() {
+  document.getElementById('print-modal').style.display = 'none';
+}
+
+function generatePrintView() {
+  const site = document.getElementById('print-site').value;
+  const list = site ? staff.filter(s => s.site === site) : staff.slice();
+
+  const byService = {};
+  list.forEach(s => {
+    const key = s.service || 'Sans service';
+    if (!byService[key]) byService[key] = [];
+    byService[key].push(s);
+  });
+  const services = Object.keys(byService).sort((a,b) => a.localeCompare(b, 'fr'));
+  services.forEach(svc => {
+    byService[svc].sort((a,b) => (a.nom||'').localeCompare(b.nom||'', 'fr'));
+  });
+
+  const dateStr = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+  const siteLabel = site || 'Tous les sites';
+
+  let html = `
+    <div class="listing-header">
+      <h1>Annuaire du personnel — ${escHtml(siteLabel)}</h1>
+      <div class="listing-meta">Liste générée le ${dateStr} · ${list.length} personne(s)</div>
+    </div>
+  `;
+
+  if (!list.length) {
+    html += `<p>Aucune fiche pour ce site.</p>`;
+  } else {
+    services.forEach(svc => {
+      html += `<div class="listing-service">
+        <h2>${escHtml(svc)} (${byService[svc].length})</h2>
+        <table class="listing-table">
+          <thead><tr><th>Nom</th><th>Fonction</th><th>Téléphone</th><th>Abrégé</th>${site ? '' : '<th>Site</th>'}</tr></thead>
+          <tbody>
+            ${byService[svc].map(s => `<tr>
+              <td>${s.titre ? escHtml(s.titre) + ' ' : ''}${escHtml(s.prenom)} ${escHtml(s.nom)}</td>
+              <td>${escHtml(s.fonction)}</td>
+              <td>${escHtml(s.tel)}</td>
+              <td>${escHtml(s.abrege)}</td>
+              ${site ? '' : `<td>${escHtml(s.site)}</td>`}
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+    });
+  }
+
+  document.getElementById('print-view').innerHTML = html;
+  closePrintModal();
+  setTimeout(() => window.print(), 100);
+}
+
+// Chargement initial des données
+loadData();
+</script>
+</body>
+</html>
