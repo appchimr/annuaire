@@ -3,77 +3,141 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Annuaire du Personnel</title>
+  <meta name="color-scheme" content="light">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src https://cdn.jsdelivr.net data:; connect-src https://script.google.com https://script.googleusercontent.com; img-src 'self' data:; base-uri 'self'; form-action 'self';">
+  <title>Annuaire du personnel — CHIMR</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --gray-100: #f5f5f3; --gray-200: #e8e8e4; --gray-400: #a0a09a;
-      --gray-600: #5f5e5a; --gray-900: #1a1a18;
-      --radius-md: 8px; --radius-lg: 12px;
-      --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05);
+      --blue-50: #eef6fd;
+      --blue-100: #dcecff;
+      --blue-300: #8fc0ed;
+      --blue-600: #185fa5;
+      --blue-700: #0c447c;
+      --green-50: #eaf7f1;
+      --green-700: #176b51;
+      --red-50: #fcebeb;
+      --red-200: #f7c1c1;
+      --red-700: #791f1f;
+      --amber-50: #fff7e5;
+      --amber-700: #76520c;
+      --gray-50: #fafaf9;
+      --gray-100: #f5f5f3;
+      --gray-200: #e8e8e4;
+      --gray-300: #d5d5d0;
+      --gray-400: #a0a09a;
+      --gray-600: #5f5e5a;
+      --gray-700: #44433f;
+      --gray-900: #1a1a18;
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
+      --focus: 0 0 0 3px rgba(55,138,221,.17);
     }
 
     body {
-      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
       background: var(--gray-100);
       color: var(--gray-900);
       min-height: 100vh;
     }
 
-    /* Header */
+    button, input, select, textarea { font: inherit; }
+    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+      outline: none;
+      box-shadow: var(--focus);
+    }
+
     .top-bar {
       background: #fff;
-      border-bottom: 0.5px solid var(--gray-200);
+      border-bottom: 1px solid var(--gray-200);
       padding: 0 2rem;
-      height: 56px;
+      min-height: 60px;
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 16px;
       position: sticky;
       top: 0;
-      z-index: 10;
+      z-index: 20;
     }
-    .top-bar-brand {
-      display: flex;
+    .top-bar-brand { display: flex; align-items: center; gap: 10px; font-weight: 650; }
+    .top-bar-brand i { font-size: 22px; color: var(--blue-600); }
+    .top-bar-sub { font-size: 13px; color: var(--gray-400); font-weight: 450; }
+    .top-bar-actions { display: flex; align-items: center; gap: 8px; }
+
+    .mode-badge {
+      display: inline-flex;
       align-items: center;
-      gap: 10px;
-      font-weight: 500;
-      font-size: 16px;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 650;
+      color: var(--blue-700);
+      background: var(--blue-50);
+      border: 1px solid var(--blue-100);
     }
-    .top-bar-brand i { font-size: 20px; color: #185FA5; }
-    .top-bar-sub { font-size: 13px; color: var(--gray-400); margin-left: 4px; }
+    .mode-badge.admin { color: var(--green-700); background: var(--green-50); border-color: #b8e2d2; }
 
-    /* Layout */
-    .container { max-width: 1150px; margin: 0 auto; padding: 2rem 1.5rem; }
+    .container { max-width: 1450px; margin: 0 auto; padding: 1.5rem; }
 
-    /* Controls */
-    .controls {
+    .notice {
+      background: var(--blue-50);
+      border: 1px solid var(--blue-100);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--blue-700);
       display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      align-items: center;
-      margin-bottom: 1.5rem;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 1rem;
+    }
+    .notice.error { background: var(--red-50); border-color: var(--red-200); color: var(--red-700); }
+    .notice.warning { background: var(--amber-50); border-color: #f1d394; color: var(--amber-700); }
+    .notice.success { background: var(--green-50); border-color: #b8e2d2; color: var(--green-700); }
+    .notice i { flex: 0 0 auto; margin-top: 1px; }
+
+    .controls-panel {
+      background: #fff;
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      padding: 14px;
+      margin-bottom: 1rem;
+    }
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .control-wrap { position: relative; }
+    .control-wrap > i {
+      position: absolute;
+      left: 11px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--gray-400);
+      pointer-events: none;
     }
     .controls input, .controls select {
       height: 38px;
-      padding: 0 12px;
-      border: 0.5px solid var(--gray-200);
+      padding: 0 11px;
+      border: 1px solid var(--gray-200);
       border-radius: var(--radius-md);
       background: #fff;
       color: var(--gray-900);
       font-size: 14px;
-      outline: none;
-      transition: border-color 0.15s;
+      min-width: 150px;
     }
-    .controls input:focus, .controls select:focus { border-color: #378ADD; box-shadow: 0 0 0 3px rgba(55,138,221,0.12); }
-    #search { width: 240px; }
-    .controls-right { margin-left: auto; display: flex; gap: 8px; }
+    .controls .search { width: min(360px, 78vw); padding-left: 34px; }
+    .controls-right { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+
     .btn {
-      height: 38px;
-      padding: 0 16px;
-      border: 0.5px solid var(--gray-200);
+      min-height: 38px;
+      padding: 0 13px;
+      border: 1px solid var(--gray-200);
       border-radius: var(--radius-md);
       background: #fff;
       color: var(--gray-900);
@@ -81,315 +145,427 @@
       cursor: pointer;
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 6px;
       white-space: nowrap;
-      transition: background 0.12s;
+      transition: background .12s, border-color .12s, color .12s, transform .05s;
     }
     .btn:hover { background: var(--gray-100); }
-    .btn-primary {
-      background: #185FA5;
-      border-color: #185FA5;
-      color: #fff;
-    }
-    .btn-primary:hover { background: #0C447C; border-color: #0C447C; }
-    .btn-sm { height: 30px; font-size: 12px; padding: 0 10px; }
-    .btn-danger { background: #FCEBEB; border-color: #F7C1C1; color: #791F1F; }
-    .btn-danger:hover { background: #F7C1C1; }
+    .btn:active { transform: translateY(1px); }
+    .btn:disabled { opacity: .55; cursor: not-allowed; }
+    .btn-primary { background: var(--blue-600); border-color: var(--blue-600); color: #fff; }
+    .btn-primary:hover { background: var(--blue-700); border-color: var(--blue-700); }
+    .btn-danger { background: var(--red-50); border-color: var(--red-200); color: var(--red-700); }
+    .btn-danger:hover { background: var(--red-200); }
+    .btn-sm { min-height: 30px; padding: 0 9px; font-size: 12px; }
+    .btn-icon { width: 32px; min-height: 32px; padding: 0; }
 
-    /* Stats */
     .stats {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      grid-template-columns: repeat(4, minmax(135px, 1fr));
       gap: 10px;
-      margin-bottom: 1.75rem;
+      margin-bottom: 1rem;
     }
-    .stat {
-      background: #fff;
-      border: 0.5px solid var(--gray-200);
-      border-radius: var(--radius-lg);
-      padding: 14px 18px;
-    }
-    .stat-label { font-size: 12px; color: var(--gray-400); margin-bottom: 4px; }
-    .stat-value { font-size: 24px; font-weight: 500; }
+    .stat { background: #fff; border: 1px solid var(--gray-200); border-radius: var(--radius-lg); padding: 12px 15px; }
+    .stat-label { font-size: 12px; color: var(--gray-400); margin-bottom: 3px; }
+    .stat-value { font-size: 22px; font-weight: 650; }
 
-    /* Grid */
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
-      gap: 12px;
-    }
-    .card {
+    .table-shell {
       background: #fff;
-      border: 0.5px solid var(--gray-200);
+      border: 1px solid var(--gray-200);
       border-radius: var(--radius-lg);
-      padding: 1rem 1.25rem;
       box-shadow: var(--shadow);
-      transition: box-shadow 0.15s;
+      overflow: hidden;
     }
-    .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-    .card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .table-toolbar {
+      min-height: 42px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid var(--gray-200);
+      font-size: 12px;
+      color: var(--gray-600);
+    }
+    .table-container { width: 100%; overflow-x: auto; }
+    table.directory { width: 100%; border-collapse: collapse; min-width: 1080px; }
+    .directory thead { background: var(--gray-50); position: sticky; top: 60px; z-index: 5; }
+    .directory th {
+      height: 40px;
+      padding: 8px 10px;
+      text-align: left;
+      color: var(--gray-600);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .025em;
+      border-bottom: 1px solid var(--gray-200);
+      white-space: nowrap;
+    }
+    .directory td {
+      min-height: 48px;
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--gray-200);
+      vertical-align: middle;
+      font-size: 13px;
+    }
+    .directory tbody tr { transition: background .12s; }
+    .directory tbody tr:hover { background: var(--blue-50); }
+    .directory tbody tr.inactive { opacity: .62; background: var(--gray-50); }
+    .directory tbody tr.inactive:hover { opacity: .82; background: var(--blue-50); }
+    .directory tbody tr:last-child td { border-bottom: 0; }
+
+    .person-cell { display: flex; align-items: center; gap: 10px; min-width: 235px; }
     .avatar {
-      width: 44px; height: 44px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 500; font-size: 14px; flex-shrink: 0;
+      width: 34px; height: 34px; border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 11px; flex: 0 0 auto;
     }
-    .card-name { font-weight: 500; font-size: 15px; }
-    .card-fonction { font-size: 12px; color: var(--gray-400); margin-top: 1px; }
-    .badge-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+    .person-name { font-weight: 650; line-height: 1.25; }
+    .person-sub { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
+    .service-cell { min-width: 155px; }
+    .muted { color: var(--gray-400); }
+    .nowrap { white-space: nowrap; }
+    .ellipsis { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
     .badge {
       display: inline-flex; align-items: center; gap: 4px;
-      font-size: 11px; padding: 3px 8px;
-      border-radius: var(--radius-md);
-      background: var(--gray-100);
-      color: var(--gray-600);
-      border: 0.5px solid var(--gray-200);
-      font-weight: 500;
+      padding: 3px 7px; border-radius: 999px;
+      font-size: 11px; font-weight: 650;
+      border: 1px solid var(--gray-200);
+      background: var(--gray-100); color: var(--gray-600);
     }
-    .badge-site {
-      background: #E6F1FB; color: #0C447C; border-color: #B5D4F4;
-    }
-    .card-info {
-      font-size: 13px; color: var(--gray-400);
-      display: flex; align-items: center; gap: 6px; margin-top: 6px;
-    }
-    .card-info i { font-size: 14px; flex-shrink: 0; }
-    .card-info span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .card-comment {
-      font-size: 12px; color: var(--gray-600);
-      background: var(--gray-100); border-radius: var(--radius-md);
-      padding: 6px 10px; margin-top: 8px;
-      font-style: italic;
-    }
-    .card-actions {
-      display: flex; gap: 6px;
-      margin-top: 12px; padding-top: 12px;
-      border-top: 0.5px solid var(--gray-200);
-    }
-    .card-actions .btn { flex: 1; justify-content: center; }
+    .badge-site { background: var(--blue-50); border-color: var(--blue-100); color: var(--blue-700); }
+    .badge-inactive { background: var(--red-50); border-color: var(--red-200); color: var(--red-700); }
+    .badge-warning { background: var(--amber-50); border-color: #f1d394; color: var(--amber-700); }
 
-    /* Empty */
-    .empty {
-      grid-column: 1/-1; text-align: center;
-      padding: 4rem; color: var(--gray-400);
+    .number-list { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; min-width: 135px; }
+    .number-link {
+      color: var(--blue-700); text-decoration: none; font-weight: 600;
+      display: inline-flex; align-items: center; gap: 3px;
     }
-    .empty i { font-size: 40px; display: block; margin-bottom: 12px; }
+    .number-link:hover { text-decoration: underline; }
+    .copy-btn {
+      border: 0; background: transparent; color: var(--gray-400); cursor: pointer;
+      width: 25px; height: 25px; border-radius: var(--radius-sm);
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .copy-btn:hover { color: var(--blue-700); background: var(--blue-100); }
 
-    /* Modal */
+    .row-actions { display: flex; justify-content: flex-end; gap: 5px; min-width: 118px; }
+    .admin-only { display: none !important; }
+    body.is-admin .admin-only { display: inline-flex !important; }
+    body.is-admin .admin-only.block { display: block !important; }
+    body.is-admin .admin-only.flex { display: flex !important; }
+
+    .empty { text-align: center; padding: 4rem 1rem; color: var(--gray-400); }
+    .empty i { display: block; font-size: 38px; margin-bottom: 9px; }
+    .spinner { animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
     .modal-bg {
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.35);
+      position: fixed; inset: 0; background: rgba(0,0,0,.38);
       display: flex; align-items: center; justify-content: center;
-      z-index: 100; padding: 1rem;
-      overflow-y: auto;
+      z-index: 100; padding: 1rem; overflow-y: auto;
     }
     .modal {
-      background: #fff;
-      border: 0.5px solid var(--gray-200);
-      border-radius: var(--radius-lg);
-      padding: 1.75rem;
-      width: 100%; max-width: 460px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
-      margin: auto;
+      background: #fff; border: 1px solid var(--gray-200); border-radius: var(--radius-lg);
+      padding: 1.5rem; width: 100%; max-width: 520px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.18); margin: auto;
     }
-    .modal h2 { font-size: 17px; font-weight: 500; margin-bottom: 1.25rem; }
+    .modal.wide { max-width: 850px; }
+    .modal h2 { font-size: 18px; margin-bottom: 1.1rem; }
+    .modal-description { color: var(--gray-600); font-size: 13px; margin: -.5rem 0 1rem; }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
     .field { margin-bottom: 12px; }
-    .field label { display: block; font-size: 13px; color: var(--gray-600); margin-bottom: 5px; }
+    .field label { display: block; font-size: 13px; color: var(--gray-600); margin-bottom: 5px; font-weight: 600; }
     .field input, .field select, .field textarea {
-      width: 100%; height: 38px; padding: 0 12px;
-      border: 0.5px solid var(--gray-200);
-      border-radius: var(--radius-md);
-      font-size: 14px; outline: none;
-      transition: border-color 0.15s;
-      font-family: inherit;
+      width: 100%; min-height: 38px; padding: 8px 11px;
+      border: 1px solid var(--gray-200); border-radius: var(--radius-md);
+      font-size: 14px; outline: none; font-family: inherit; background: #fff;
     }
-    .field textarea { height: 64px; padding: 8px 12px; resize: vertical; }
-    .field input:focus, .field select:focus, .field textarea:focus { border-color: #378ADD; box-shadow: 0 0 0 3px rgba(55,138,221,0.12); }
-    .field-error { border-color: #E5484D !important; }
+    .field textarea { min-height: 76px; resize: vertical; }
+    .field input[readonly] { background: var(--gray-100); color: var(--gray-600); }
     .field-hint { font-size: 11px; color: var(--gray-400); margin-top: 4px; }
-    .field-hint.error { color: #E5484D; }
+    .field-hint.error { color: var(--red-700); }
+    .field-error { border-color: #e5484d !important; }
     .modal-actions { display: flex; gap: 8px; margin-top: 1.25rem; justify-content: flex-end; }
 
-    /* Notice */
-    .notice {
-      background: #E6F1FB; border: 0.5px solid #B5D4F4;
-      border-radius: var(--radius-md); padding: 10px 14px;
-      font-size: 13px; color: #0C447C;
-      display: flex; align-items: flex-start; gap: 8px;
-      margin-bottom: 1.5rem;
-    }
-    .notice i { flex-shrink: 0; margin-top: 1px; }
+    .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--gray-200); margin: -4px 0 16px; }
+    .tab-btn { border: 0; background: transparent; padding: 9px 12px; cursor: pointer; color: var(--gray-600); border-bottom: 2px solid transparent; }
+    .tab-btn.active { color: var(--blue-700); border-bottom-color: var(--blue-600); font-weight: 650; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .history-list { max-height: 420px; overflow: auto; border: 1px solid var(--gray-200); border-radius: var(--radius-md); }
+    .history-item { padding: 10px 12px; border-bottom: 1px solid var(--gray-200); font-size: 12px; }
+    .history-item:last-child { border-bottom: 0; }
+    .history-main { display: flex; justify-content: space-between; gap: 12px; }
+    .history-action { font-weight: 700; }
+    .history-meta { color: var(--gray-400); margin-top: 3px; }
 
-    @media (max-width: 600px) {
-      .top-bar { padding: 0 1rem; }
-      .container { padding: 1rem; }
-      #search { width: 100%; }
-      .controls { flex-direction: column; }
-      .controls-right { margin-left: 0; }
-      .form-row, .form-row-3 { grid-template-columns: 1fr; }
+    .drop-zone {
+      border: 2px dashed var(--gray-300); border-radius: var(--radius-lg);
+      padding: 2rem; text-align: center; color: var(--gray-600); background: var(--gray-50);
     }
+    .drop-zone.dragover { border-color: var(--blue-600); background: var(--blue-50); }
+    .import-preview { margin-top: 12px; max-height: 250px; overflow: auto; font-size: 12px; }
 
-    /* Vue listing imprimable */
+    .toast-area { position: fixed; right: 16px; bottom: 16px; z-index: 200; display: grid; gap: 8px; max-width: min(380px, calc(100vw - 32px)); }
+    .toast { background: #fff; border: 1px solid var(--gray-200); box-shadow: 0 10px 30px rgba(0,0,0,.15); border-radius: var(--radius-md); padding: 10px 12px; font-size: 13px; display: flex; align-items: flex-start; gap: 8px; }
+    .toast.success { border-left: 4px solid #2b8a68; }
+    .toast.error { border-left: 4px solid #d64545; }
+
     .print-only { display: none; }
-    .listing-header { margin-bottom: 20px; border-bottom: 2px solid #1a1a18; padding-bottom: 10px; }
+    .listing-header { margin-bottom: 18px; border-bottom: 2px solid #1a1a18; padding-bottom: 10px; }
     .listing-header h1 { font-size: 20px; margin-bottom: 4px; }
-    .listing-header .listing-meta { font-size: 12px; color: #5f5e5a; }
-    .listing-service { margin-bottom: 18px; }
-    .listing-service h2 {
-      font-size: 14px; background: #f0f0ee; padding: 6px 10px;
-      border-left: 3px solid #185FA5; margin-bottom: 6px;
+    .listing-header .listing-meta { font-size: 12px; color: var(--gray-600); }
+    .listing-service { margin-bottom: 16px; break-inside: avoid; }
+    .listing-service h2 { font-size: 13px; background: #f0f0ee; padding: 6px 9px; border-left: 3px solid var(--blue-600); margin-bottom: 5px; }
+    .listing-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .listing-table th, .listing-table td { text-align: left; padding: 4px 7px; border-bottom: 1px solid #e0e0dc; }
+    .listing-table th { font-weight: 700; color: var(--gray-600); font-size: 10px; text-transform: uppercase; }
+
+    @media (max-width: 900px) {
+      .top-bar { padding: 0 1rem; }
+      .top-bar-sub { display: none; }
+      .container { padding: 1rem; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .controls-right { margin-left: 0; width: 100%; }
+      .controls-right .btn { flex: 1; }
     }
-    .listing-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    .listing-table th, .listing-table td {
-      text-align: left; padding: 5px 8px; border-bottom: 1px solid #e0e0dc;
+    @media (max-width: 600px) {
+      .top-bar { align-items: flex-start; padding-top: 10px; padding-bottom: 10px; }
+      .top-bar-actions { flex-direction: column; align-items: flex-end; }
+      .controls { flex-direction: column; align-items: stretch; }
+      .controls input, .controls select, .controls .search { width: 100%; }
+      .form-row { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .modal { padding: 1rem; }
+      .hide-mobile { display: none; }
     }
-    .listing-table th { font-weight: 600; color: #5f5e5a; font-size: 11px; text-transform: uppercase; }
 
     @media print {
+      @page { size: A4 portrait; margin: 12mm; }
       body * { visibility: hidden; }
       #print-view, #print-view * { visibility: visible; }
       #print-view { display: block !important; position: absolute; top: 0; left: 0; width: 100%; }
-      .modal-bg { display: none !important; }
+      .modal-bg, .toast-area { display: none !important; }
     }
   </style>
 </head>
 <body>
-
-<div class="top-bar">
+<header class="top-bar">
   <div class="top-bar-brand">
-    <i class="ti ti-building-hospital"></i>
-    Annuaire du Personnel
-    <span class="top-bar-sub">— Intranet</span>
+    <i class="ti ti-building-hospital" aria-hidden="true"></i>
+    <span>Annuaire du personnel <span class="top-bar-sub">— CHIMR</span></span>
   </div>
-</div>
+  <div class="top-bar-actions">
+    <span class="mode-badge" id="mode-badge"><i class="ti ti-eye"></i> Consultation</span>
+    <button class="btn" id="admin-login-btn" type="button"><i class="ti ti-lock"></i> Administration</button>
+    <button class="btn admin-only" id="admin-logout-btn" type="button"><i class="ti ti-logout"></i> Quitter l’administration</button>
+  </div>
+</header>
 
-<div class="container">
-
-  <div class="notice" id="notice">
+<main class="container">
+  <div class="notice" id="info-notice">
     <i class="ti ti-info-circle"></i>
-    <span>Cet annuaire est connecté à Google Sheets : toutes les modifications sont visibles immédiatement par tous les utilisateurs.</span>
+    <span>Les données sont synchronisées avec Google Sheets. Utilisez « Signaler une correction » lorsqu’une information semble erronée.</span>
   </div>
-
-  <div class="notice" id="loading-state" style="display:none">
-    <i class="ti ti-loader-2"></i>
-    <span>Chargement des données depuis Google Sheets…</span>
+  <div class="notice" id="loading-state" hidden>
+    <i class="ti ti-loader-2 spinner"></i><span>Chargement des données…</span>
   </div>
-
-  <div class="notice" id="error-state" style="display:none; background:#FCEBEB; border-color:#F7C1C1; color:#791F1F;">
-    <i class="ti ti-alert-triangle"></i>
-    <span></span>
+  <div class="notice error" id="error-state" hidden>
+    <i class="ti ti-alert-triangle"></i><span></span>
+    <button class="btn btn-sm" id="retry-btn" type="button" style="margin-left:auto">Réessayer</button>
   </div>
+  <div class="notice success" id="success-state" hidden><i class="ti ti-circle-check"></i><span></span></div>
 
-  <div class="controls">
-    <input type="text" id="search" placeholder="Rechercher par nom, fonction, n° abrégé…" oninput="applyFilters()">
-    <select id="filterSite" onchange="applyFilters()">
-      <option value="">Tous les sites</option>
-      <option value="Montdidier">Montdidier</option>
-      <option value="Roye">Roye</option>
-    </select>
-    <select id="filterService" onchange="applyFilters()">
-      <option value="">Tous les services</option>
-    </select>
-    <div class="controls-right">
-      <button class="btn" onclick="openPrintModal()">
-        <i class="ti ti-printer"></i> Imprimer / PDF
-      </button>
-      <button class="btn btn-primary" onclick="openAdd()">
-        <i class="ti ti-plus"></i> Ajouter un membre
-      </button>
-    </div>
-  </div>
-
-  <div class="stats" id="stats"></div>
-  <div class="grid" id="grid"></div>
-
-</div>
-
-<div class="modal-bg" id="modal" style="display:none">
-  <div class="modal">
-    <h2 id="modal-title">Nouvelle fiche</h2>
-
-    <div class="form-row">
-      <div class="field">
-        <label>Site *</label>
-        <select id="f-site">
-          <option value="Montdidier">Montdidier</option>
-          <option value="Roye">Roye</option>
-        </select>
+  <section class="controls-panel" aria-label="Filtres de l’annuaire">
+    <div class="controls">
+      <div class="control-wrap">
+        <i class="ti ti-search"></i>
+        <input class="search" type="search" id="search" placeholder="Nom, fonction, service, téléphone, abrégé…" autocomplete="off">
       </div>
-      <div class="field">
-        <label>Titre</label>
-        <select id="f-titre">
-          <option value="Monsieur">Monsieur</option>
-          <option value="Madame">Madame</option>
-          <option value="Docteur">Docteur</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="form-row">
-      <div class="field"><label>Prénom *</label><input type="text" id="f-prenom" placeholder="Prénom"></div>
-      <div class="field"><label>Nom *</label><input type="text" id="f-nom" placeholder="Nom"></div>
-    </div>
-
-    <div class="form-row">
-      <div class="field"><label>Service</label><input type="text" id="f-service" placeholder="Ex : Cardiologie"></div>
-      <div class="field"><label>Fonction</label><input type="text" id="f-fonction" placeholder="Ex : Infirmier(e)"></div>
-    </div>
-
-    <div class="form-row">
-      <div class="field">
-        <label>Téléphone</label>
-        <input type="text" id="f-tel" placeholder="01 23 45 67 89" maxlength="14" oninput="formatPhoneInput(this)">
-        <div class="field-hint" id="f-tel-hint">Format français : 10 chiffres</div>
-      </div>
-      <div class="field">
-        <label>Numéro abrégé</label>
-        <input type="text" id="f-abrege" placeholder="1234" maxlength="4" inputmode="numeric" oninput="formatAbregeInput(this)">
-        <div class="field-hint" id="f-abrege-hint">4 chiffres</div>
-      </div>
-    </div>
-
-    <div class="field">
-      <label>Commentaire</label>
-      <textarea id="f-commentaire" placeholder="Notes, disponibilité, remarques…"></textarea>
-    </div>
-
-    <div class="modal-actions">
-      <button class="btn" onclick="closeModal()">Annuler</button>
-      <button class="btn btn-primary" id="save-btn" onclick="saveModal()"><i class="ti ti-check"></i> Enregistrer</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-bg" id="print-modal" style="display:none">
-  <div class="modal">
-    <h2>Imprimer le listing</h2>
-    <div class="field">
-      <label>Site à imprimer</label>
-      <select id="print-site">
-        <option value="Montdidier">Montdidier</option>
-        <option value="Roye">Roye</option>
-        <option value="">Tous les sites</option>
+      <select id="filterSite" aria-label="Filtrer par site"><option value="">Tous les sites</option></select>
+      <select id="filterService" aria-label="Filtrer par service"><option value="">Tous les services</option></select>
+      <select id="filterCompleteness" aria-label="Filtrer par complétude">
+        <option value="">Toutes les fiches</option>
+        <option value="complete">Fiches complètes</option>
+        <option value="incomplete">Fiches incomplètes</option>
       </select>
+      <select id="filterStatus" class="admin-only" aria-label="Filtrer par statut">
+        <option value="active">Fiches actives</option>
+        <option value="inactive">Fiches désactivées</option>
+        <option value="all">Toutes les fiches</option>
+      </select>
+      <select id="sortBy" aria-label="Trier l’annuaire">
+        <option value="name">Tri : nom</option>
+        <option value="service">Tri : service</option>
+        <option value="site">Tri : site</option>
+        <option value="updated">Tri : mise à jour</option>
+      </select>
+      <button class="btn btn-icon" id="clear-filters-btn" type="button" title="Effacer les filtres" aria-label="Effacer les filtres"><i class="ti ti-x"></i></button>
+
+      <div class="controls-right">
+        <button class="btn" id="print-btn" type="button"><i class="ti ti-printer"></i> Imprimer / PDF</button>
+        <button class="btn" id="export-btn" type="button"><i class="ti ti-file-spreadsheet"></i> Exporter Excel</button>
+        <button class="btn admin-only" id="admin-tools-btn" type="button"><i class="ti ti-settings"></i> Gestion</button>
+        <button class="btn btn-primary admin-only" id="add-btn" type="button"><i class="ti ti-plus"></i> Ajouter</button>
+      </div>
     </div>
+  </section>
+
+  <section class="stats" id="stats" aria-label="Statistiques"></section>
+
+  <section class="table-shell" aria-label="Résultats de l’annuaire">
+    <div class="table-toolbar">
+      <span id="result-label">0 résultat</span>
+      <span id="last-update-label">Dernière synchronisation : —</span>
+    </div>
+    <div class="table-container" id="table-container">
+      <table class="directory">
+        <thead>
+          <tr>
+            <th>Personnel</th>
+            <th>Fonction</th>
+            <th>Service</th>
+            <th>Site</th>
+            <th>Téléphone</th>
+            <th>Abrégé</th>
+            <th class="hide-mobile">Mise à jour</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="directory-body"></tbody>
+      </table>
+      <div class="empty" id="empty-state" hidden><i class="ti ti-search"></i><span>Aucun résultat.</span></div>
+    </div>
+  </section>
+</main>
+
+<!-- Fiche personne -->
+<div class="modal-bg" id="member-modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="member-modal-title">
+    <h2 id="member-modal-title">Nouvelle fiche</h2>
+    <div class="form-row">
+      <div class="field"><label for="f-site">Site *</label><select id="f-site"></select></div>
+      <div class="field"><label for="f-titre">Titre</label><select id="f-titre"><option value="Monsieur">Monsieur</option><option value="Madame">Madame</option><option value="Docteur">Docteur</option><option value="">Sans titre</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label for="f-prenom">Prénom *</label><input type="text" id="f-prenom" autocomplete="given-name"></div>
+      <div class="field"><label for="f-nom">Nom *</label><input type="text" id="f-nom" autocomplete="family-name"></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label for="f-service">Service</label><select id="f-service"><option value="">Sans service</option></select></div>
+      <div class="field"><label for="f-fonction">Fonction</label><select id="f-fonction"><option value="">Sans fonction</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label for="f-tel">Téléphone(s)</label>
+        <input type="text" id="f-tel" placeholder="03 22 73 45 04, 03 22 73 45 15">
+        <div class="field-hint" id="f-tel-hint">Plusieurs numéros possibles, séparés par une virgule.</div>
+      </div>
+      <div class="field">
+        <label for="f-abrege">Numéro(s) abrégé(s)</label>
+        <input type="text" id="f-abrege" placeholder="7155, 7030">
+        <div class="field-hint" id="f-abrege-hint">Chaque numéro abrégé doit contenir 4 chiffres.</div>
+      </div>
+    </div>
+    <div class="field"><label for="f-commentaire">Commentaire</label><textarea id="f-commentaire" placeholder="Disponibilité, bâtiment, étage, remarque…"></textarea></div>
     <div class="modal-actions">
-      <button class="btn" onclick="closePrintModal()">Annuler</button>
-      <button class="btn btn-primary" onclick="generatePrintView()"><i class="ti ti-printer"></i> Générer le listing</button>
+      <button class="btn" type="button" data-close="member-modal">Annuler</button>
+      <button class="btn btn-primary" type="button" id="save-btn"><i class="ti ti-check"></i> Enregistrer</button>
     </div>
   </div>
 </div>
 
-<div id="print-view" class="print-only" style="display:none"></div>
+<!-- Connexion administration -->
+<div class="modal-bg" id="login-modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="login-title">
+    <h2 id="login-title">Accès à l’administration</h2>
+    <p class="modal-description">Saisissez le mot de passe administrateur. La session expirera automatiquement.</p>
+    <div class="field"><label for="admin-identity">Votre nom ou vos initiales</label><input type="text" id="admin-identity" autocomplete="name" placeholder="Ex. David M."></div>
+    <div class="field"><label for="admin-password">Mot de passe</label><input type="password" id="admin-password" autocomplete="current-password"></div>
+    <div class="modal-actions">
+      <button class="btn" type="button" data-close="login-modal">Annuler</button>
+      <button class="btn btn-primary" type="button" id="login-submit-btn"><i class="ti ti-login"></i> Se connecter</button>
+    </div>
+  </div>
+</div>
+
+<!-- Signalement -->
+<div class="modal-bg" id="report-modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="report-title">
+    <h2 id="report-title">Signaler une correction</h2>
+    <p class="modal-description" id="report-person-label"></p>
+    <div class="field"><label for="report-message">Correction à effectuer *</label><textarea id="report-message" placeholder="Décrivez précisément l’information à corriger."></textarea></div>
+    <div class="field"><label for="report-contact">Votre nom ou service (facultatif)</label><input type="text" id="report-contact"></div>
+    <div class="modal-actions">
+      <button class="btn" type="button" data-close="report-modal">Annuler</button>
+      <button class="btn btn-primary" type="button" id="report-submit-btn"><i class="ti ti-send"></i> Envoyer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Impression -->
+<div class="modal-bg" id="print-modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="print-title">
+    <h2 id="print-title">Imprimer le listing</h2>
+    <div class="field"><label for="print-site">Site à imprimer</label><select id="print-site"><option value="">Tous les sites</option></select></div>
+    <div class="field"><label for="print-service">Service à imprimer</label><select id="print-service"><option value="">Tous les services</option></select></div>
+    <div class="modal-actions">
+      <button class="btn" type="button" data-close="print-modal">Annuler</button>
+      <button class="btn btn-primary" type="button" id="generate-print-btn"><i class="ti ti-printer"></i> Générer le listing</button>
+    </div>
+  </div>
+</div>
+
+<!-- Outils administrateur -->
+<div class="modal-bg" id="admin-modal" hidden>
+  <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="admin-title">
+    <h2 id="admin-title">Gestion de l’annuaire</h2>
+    <div class="tabs" role="tablist">
+      <button class="tab-btn active" type="button" data-tab="settings-panel">Listes</button>
+      <button class="tab-btn" type="button" data-tab="import-panel">Import Excel</button>
+      <button class="tab-btn" type="button" data-tab="history-panel">Historique</button>
+      <button class="tab-btn" type="button" data-tab="reports-panel">Signalements</button>
+    </div>
+
+    <div class="tab-panel active" id="settings-panel">
+      <div class="form-row">
+        <div class="field"><label for="settings-sites">Sites — un par ligne</label><textarea id="settings-sites" style="min-height:180px"></textarea></div>
+        <div class="field"><label for="settings-services">Services — un par ligne</label><textarea id="settings-services" style="min-height:180px"></textarea></div>
+      </div>
+      <div class="field"><label for="settings-functions">Fonctions — une par ligne</label><textarea id="settings-functions" style="min-height:130px"></textarea></div>
+      <div class="modal-actions"><button class="btn btn-primary" type="button" id="save-settings-btn"><i class="ti ti-device-floppy"></i> Enregistrer les listes</button></div>
+    </div>
+
+    <div class="tab-panel" id="import-panel">
+      <div class="notice warning"><i class="ti ti-alert-triangle"></i><span>L’import ajoute ou met à jour les personnes en utilisant la colonne « UUID » lorsqu’elle existe. Les lignes sans prénom ou nom seront refusées.</span></div>
+      <div class="drop-zone" id="drop-zone">
+        <i class="ti ti-file-spreadsheet" style="font-size:36px"></i>
+        <p>Déposez un fichier .xlsx ici ou sélectionnez-le.</p>
+        <button class="btn" type="button" id="choose-import-btn" style="margin-top:10px">Choisir un fichier</button>
+        <input type="file" id="import-file" accept=".xlsx,.xls,.csv" hidden>
+      </div>
+      <div class="import-preview" id="import-preview"></div>
+      <div class="modal-actions"><button class="btn btn-primary" type="button" id="run-import-btn" disabled><i class="ti ti-upload"></i> Importer</button></div>
+    </div>
+
+    <div class="tab-panel" id="history-panel"><div class="history-list" id="history-list"></div></div>
+    <div class="tab-panel" id="reports-panel"><div class="history-list" id="reports-list"></div></div>
+
+    <div class="modal-actions"><button class="btn" type="button" data-close="admin-modal">Fermer</button></div>
+  </div>
+</div>
+
+<div id="print-view" class="print-only"></div>
+<div class="toast-area" id="toast-area" aria-live="polite"></div>
 
 <script>
-// ============================================
-// CONFIGURATION — URL de votre Google Apps Script
-// ============================================
 const API_URL = "https://script.google.com/macros/s/AKfycbx78P_XgD3bsvtfumO7QluzVfQ_OzwE2aKxobABEZwfbuwsPtATj74QvBiA5CKMCLePjQ/exec";
-// ============================================
-
+const REQUEST_TIMEOUT_MS = 15000;
 const COLORS = [
   {bg:"#E6F1FB",color:"#0C447C"},{bg:"#E1F5EE",color:"#085041"},
   {bg:"#EEEDFE",color:"#3C3489"},{bg:"#FAECE7",color:"#712B13"},
@@ -399,357 +575,660 @@ const COLORS = [
 
 let staff = [];
 let filtered = [];
-let editId = null; // id numérique de la ligne dans le Google Sheet
-let isSaving = false;
+let settings = { sites: ["Montdidier", "Roye"], services: [], functions: [] };
+let meta = {};
+let editId = null;
+let reportId = null;
+let adminToken = sessionStorage.getItem("annuaireAdminToken") || "";
+let adminData = { history: [], reports: [] };
+let importRows = [];
+let lastFocusedElement = null;
 
-async function loadData() {
-  showLoading(true);
-  showError('');
-  try {
-    const res = await fetch(API_URL);
-    const data = await res.json();
-    if (data && data.error) throw new Error(data.error);
-    staff = (data || []).map(normalizeRecord);
-    populateFilters();
-    applyFilters();
-  } catch (e) {
-    showError("Impossible de charger les données depuis Google Sheets. Vérifiez que le script est bien déployé et accessible. Détail : " + e.message);
-  } finally {
-    showLoading(false);
-  }
-}
+const $ = id => document.getElementById(id);
+const escHtml = value => String(value ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+const normalizeText = value => String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+const cleanList = value => [...new Set(String(value || "").split(/[\n,;]+/).map(v => v.trim()).filter(Boolean))].sort((a,b) => a.localeCompare(b,"fr",{sensitivity:"base"}));
+const splitValues = value => String(value || "").split(/[,;\/]+/).map(v => v.trim()).filter(Boolean);
+const isActive = record => record.actif !== false && String(record.actif).toLowerCase() !== "false" && String(record.actif) !== "0";
+const personLabel = record => `${record.prenom || ""} ${record.nom || ""}`.trim();
 
-function normalizeRecord(r) {
-  return {
-    id: r.id,
-    site: r.site || '',
-    titre: r.titre || '',
-    prenom: r.prenom || '',
-    nom: r.nom || '',
-    service: r.service || '',
-    fonction: r.fonction || '',
-    tel: r.tel || '',
-    abrege: r.abrege ? String(r.abrege) : '',
-    commentaire: r.commentaire || ''
-  };
+function fetchWithTimeout(url, options = {}, timeout = REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  return fetch(url, {...options, signal: controller.signal}).finally(() => clearTimeout(timer));
 }
 
 async function apiPost(payload) {
-  const res = await fetch(API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // évite le preflight CORS avec Apps Script
+  const res = await fetchWithTimeout(API_URL, {
+    method: "POST",
+    headers: {"Content-Type":"text/plain;charset=utf-8"},
     body: JSON.stringify(payload)
   });
-  if (!res.ok) throw new Error(`Erreur ${res.status}`);
+  if (!res.ok) throw new Error(`Erreur HTTP ${res.status}`);
   const data = await res.json();
-  if (data && data.success === false) throw new Error(data.error || 'Erreur inconnue côté script');
+  if (data && data.success === false) {
+    const error = new Error(data.error || "Erreur côté serveur");
+    error.code = data.code || "SERVER_ERROR";
+    error.details = data;
+    throw error;
+  }
   return data;
 }
 
-function showLoading(on) {
-  if (on) {
-    document.getElementById('grid').innerHTML = `<div class="empty"><i class="ti ti-loader-2"></i>Chargement de l'annuaire…</div>`;
+async function loadData({silent = false} = {}) {
+  if (!silent) setLoading(true);
+  showError("");
+  try {
+    const res = await fetchWithTimeout(`${API_URL}?t=${Date.now()}`, {cache:"no-store"});
+    if (!res.ok) throw new Error(`Erreur HTTP ${res.status}`);
+    const data = await res.json();
+    if (data && data.error) throw new Error(data.error);
+
+    if (Array.isArray(data)) {
+      // Compatibilité temporaire avec l’ancien Apps Script.
+      staff = data.map(normalizeRecord);
+      settings = deriveSettings(staff);
+      meta = { lastUpdated: new Date().toISOString(), legacyBackend: true };
+      showNotice("Le nouvel interface fonctionne, mais les fonctions sécurisées nécessitent le fichier Code.gs fourni avec cette version.", "warning");
+    } else {
+      staff = (data.staff || []).map(normalizeRecord);
+      settings = normalizeSettings(data.settings || deriveSettings(staff));
+      meta = data.meta || {};
+    }
+
+    populateFilters();
+    applyFilters();
+    updateSyncLabel();
+    if (adminToken) await restoreAdminSession();
+  } catch (error) {
+    const message = error.name === "AbortError"
+      ? "Le serveur met trop de temps à répondre."
+      : `Impossible de charger l’annuaire : ${error.message}`;
+    showError(message);
+    renderEmpty("L’annuaire n’a pas pu être chargé.", "ti-alert-triangle");
+  } finally {
+    setLoading(false);
   }
 }
 
-function showError(msg) {
-  const el = document.getElementById('error-state');
-  if (!el) return;
-  if (msg) {
-    el.style.display = 'flex';
-    el.querySelector('span').textContent = msg;
-  } else {
-    el.style.display = 'none';
-  }
+function normalizeRecord(record) {
+  return {
+    id: String(record.uuid || record.id || ""),
+    uuid: String(record.uuid || record.id || ""),
+    site: record.site || "",
+    titre: record.titre || "",
+    prenom: record.prenom || "",
+    nom: record.nom || "",
+    service: record.service || "",
+    fonction: record.fonction || "",
+    tel: record.tel || "",
+    abrege: record.abrege ? String(record.abrege) : "",
+    commentaire: record.commentaire || "",
+    actif: record.actif === undefined ? true : isActive(record),
+    updatedAt: record.updatedAt || record.updated_at || "",
+    updatedBy: record.updatedBy || record.updated_by || ""
+  };
 }
 
-function avatarColor(str) {
-  let h = 0;
-  for (const c of str) h = (h * 31 + c.charCodeAt(0)) % COLORS.length;
-  return COLORS[h];
+function normalizeSettings(raw) {
+  return {
+    sites: cleanList((raw.sites || []).join ? raw.sites.join("\n") : raw.sites),
+    services: cleanList((raw.services || []).join ? raw.services.join("\n") : raw.services),
+    functions: cleanList((raw.functions || raw.fonctions || []).join ? (raw.functions || raw.fonctions).join("\n") : (raw.functions || raw.fonctions))
+  };
 }
 
-function initials(p, n) {
-  return ((p||'')[0]||'').toUpperCase() + ((n||'')[0]||'').toUpperCase();
+function deriveSettings(records) {
+  return {
+    sites: cleanList(records.map(r => r.site).join("\n")),
+    services: cleanList(records.map(r => r.service).join("\n")),
+    functions: cleanList(records.map(r => r.fonction).join("\n"))
+  };
 }
 
-// Format phone number as French: 01 23 45 67 89
-function formatPhoneInput(el) {
-  let digits = el.value.replace(/\D/g, '').slice(0, 10);
-  let formatted = digits.replace(/(\d{2})(?=\d)/g, '$1 ').trim();
-  el.value = formatted;
-  const hint = document.getElementById('f-tel-hint');
-  if (digits.length > 0 && digits.length < 10) {
-    hint.textContent = `${digits.length}/10 chiffres`;
-    hint.classList.add('error');
-  } else {
-    hint.textContent = 'Format français : 10 chiffres';
-    hint.classList.remove('error');
-  }
+function setLoading(on) {
+  $("loading-state").hidden = !on;
+  if (on && !staff.length) renderEmpty("Chargement de l’annuaire…", "ti-loader-2 spinner");
+}
+function showError(message) {
+  $("error-state").hidden = !message;
+  if (message) $("error-state").querySelector("span").textContent = message;
+}
+function showNotice(message, type = "success") {
+  const el = $("success-state");
+  el.className = `notice ${type}`;
+  el.hidden = false;
+  el.querySelector("span").textContent = message;
+  clearTimeout(showNotice.timer);
+  showNotice.timer = setTimeout(() => { el.hidden = true; }, 6500);
+}
+function toast(message, type = "success") {
+  const el = document.createElement("div");
+  el.className = `toast ${type}`;
+  el.innerHTML = `<i class="ti ${type === "error" ? "ti-alert-triangle" : "ti-circle-check"}"></i><span>${escHtml(message)}</span>`;
+  $("toast-area").appendChild(el);
+  setTimeout(() => el.remove(), 4000);
 }
 
-function formatAbregeInput(el) {
-  el.value = el.value.replace(/\D/g, '').slice(0, 4);
-  const hint = document.getElementById('f-abrege-hint');
-  if (el.value.length > 0 && el.value.length < 4) {
-    hint.textContent = `${el.value.length}/4 chiffres`;
-    hint.classList.add('error');
-  } else {
-    hint.textContent = '4 chiffres';
-    hint.classList.remove('error');
-  }
+function avatarColor(text) {
+  let hash = 0;
+  for (const c of String(text || "")) hash = (hash * 31 + c.charCodeAt(0)) % COLORS.length;
+  return COLORS[Math.abs(hash)];
+}
+function initials(prenom, nom) {
+  return (((prenom || "")[0] || "") + ((nom || "")[0] || "")).toUpperCase() || "?";
+}
+function formatDate(value, includeTime = false) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat("fr-FR", includeTime
+    ? {day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit"}
+    : {day:"2-digit", month:"2-digit", year:"numeric"}).format(date);
+}
+function isIncomplete(record) {
+  return !record.site || !record.prenom || !record.nom || (!record.tel && !record.abrege) || !record.service || !record.fonction;
 }
 
 function populateFilters() {
-  const services = [...new Set(staff.map(s => s.service).filter(Boolean))].sort();
-  const fSvc = document.getElementById('filterService');
-  const curSvc = fSvc.value;
-  fSvc.innerHTML = '<option value="">Tous les services</option>' +
-    services.map(s => `<option value="${escAttr(s)}"${curSvc===s?' selected':''}>${escHtml(s)}</option>`).join('');
+  const availableSites = cleanList([...settings.sites, ...staff.map(r => r.site)].join("\n"));
+  const availableServices = cleanList([...settings.services, ...staff.map(r => r.service)].join("\n"));
+  fillSelect($("filterSite"), availableSites, "Tous les sites", $("filterSite").value);
+  fillSelect($("filterService"), availableServices, "Tous les services", $("filterService").value);
+  fillSelect($("print-site"), availableSites, "Tous les sites", $("print-site").value);
+  fillSelect($("print-service"), availableServices, "Tous les services", $("print-service").value);
+  fillSelect($("f-site"), settings.sites, null, $("f-site").value || settings.sites[0]);
+  fillSelect($("f-service"), settings.services, "Sans service", $("f-service").value);
+  fillSelect($("f-fonction"), settings.functions, "Sans fonction", $("f-fonction").value);
+}
+function fillSelect(select, values, emptyLabel, current) {
+  const items = [];
+  if (emptyLabel !== null) items.push(`<option value="">${escHtml(emptyLabel)}</option>`);
+  items.push(...values.map(v => `<option value="${escHtml(v)}">${escHtml(v)}</option>`));
+  select.innerHTML = items.join("");
+  if ([...select.options].some(o => o.value === current)) select.value = current;
 }
 
 function applyFilters() {
-  const q = document.getElementById('search').value.toLowerCase().trim();
-  const site = document.getElementById('filterSite').value;
-  const svc = document.getElementById('filterService').value;
-  filtered = staff.filter(s => {
-    const matchQ = !q || [s.nom,s.prenom,s.fonction,s.service,s.site,s.tel,s.abrege,s.commentaire,s.titre]
-      .join(' ').toLowerCase().includes(q);
-    const matchSite = !site || s.site === site;
-    const matchSvc = !svc || s.service === svc;
-    return matchQ && matchSite && matchSvc;
+  const queryTokens = normalizeText($("search").value).split(" ").filter(Boolean);
+  const site = $("filterSite").value;
+  const service = $("filterService").value;
+  const completeness = $("filterCompleteness").value;
+  const status = document.body.classList.contains("is-admin") ? $("filterStatus").value : "active";
+  const sortBy = $("sortBy").value;
+
+  filtered = staff.filter(record => {
+    const haystack = normalizeText([record.nom,record.prenom,record.fonction,record.service,record.site,record.tel,record.abrege,record.commentaire,record.titre].join(" "));
+    const matchesQuery = queryTokens.every(token => haystack.includes(token));
+    const matchesSite = !site || record.site === site;
+    const matchesService = !service || record.service === service;
+    const matchesCompleteness = !completeness || (completeness === "complete" ? !isIncomplete(record) : isIncomplete(record));
+    const matchesStatus = status === "all" || (status === "active" ? record.actif : !record.actif);
+    return matchesQuery && matchesSite && matchesService && matchesCompleteness && matchesStatus;
   });
+
+  const collator = new Intl.Collator("fr", {sensitivity:"base", numeric:true});
+  filtered.sort((a,b) => {
+    if (sortBy === "service") return collator.compare(a.service, b.service) || collator.compare(a.nom, b.nom);
+    if (sortBy === "site") return collator.compare(a.site, b.site) || collator.compare(a.nom, b.nom);
+    if (sortBy === "updated") return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
+    return collator.compare(a.nom, b.nom) || collator.compare(a.prenom, b.prenom);
+  });
+
   renderStats();
-  renderGrid();
+  renderTable();
 }
 
 function renderStats() {
-  const sites = [...new Set(staff.map(s => s.site).filter(Boolean))];
-  const services = [...new Set(staff.map(s => s.service).filter(Boolean))];
-  document.getElementById('stats').innerHTML = `
-    <div class="stat"><div class="stat-label">Total personnel</div><div class="stat-value">${staff.length}</div></div>
-    <div class="stat"><div class="stat-label">Sites</div><div class="stat-value">${sites.length}</div></div>
-    <div class="stat"><div class="stat-label">Services</div><div class="stat-value">${services.length}</div></div>
-    <div class="stat"><div class="stat-label">Résultats</div><div class="stat-value">${filtered.length}</div></div>
-  `;
+  const visibleBase = document.body.classList.contains("is-admin") ? staff : staff.filter(r => r.actif);
+  const activeCount = staff.filter(r => r.actif).length;
+  const servicesCount = new Set(visibleBase.map(r => r.service).filter(Boolean)).size;
+  const incompleteCount = visibleBase.filter(isIncomplete).length;
+  $("stats").innerHTML = `
+    <div class="stat"><div class="stat-label">Fiches actives</div><div class="stat-value">${activeCount}</div></div>
+    <div class="stat"><div class="stat-label">Services</div><div class="stat-value">${servicesCount}</div></div>
+    <div class="stat"><div class="stat-label">Fiches incomplètes</div><div class="stat-value">${incompleteCount}</div></div>
+    <div class="stat"><div class="stat-label">Résultats affichés</div><div class="stat-value">${filtered.length}</div></div>`;
 }
 
-function renderGrid() {
-  const grid = document.getElementById('grid');
+function renderTable() {
+  const tbody = $("directory-body");
+  $("result-label").textContent = `${filtered.length} résultat${filtered.length > 1 ? "s" : ""}`;
   if (!filtered.length) {
-    grid.innerHTML = `<div class="empty"><i class="ti ti-search"></i>Aucun résultat pour cette recherche</div>`;
+    tbody.innerHTML = "";
+    $("empty-state").hidden = false;
     return;
   }
-  grid.innerHTML = filtered.map(s => {
-    const col = avatarColor((s.nom||'') + (s.prenom||''));
-    const displayName = `${s.titre ? s.titre + ' ' : ''}${escHtml(s.prenom)} ${escHtml(s.nom)}`;
-    return `<div class="card">
-      <div class="card-head">
-        <div class="avatar" style="background:${col.bg};color:${col.color}">${initials(s.prenom, s.nom)}</div>
-        <div>
-          <div class="card-name">${displayName}</div>
-          ${s.fonction ? `<div class="card-fonction">${escHtml(s.fonction)}</div>` : ''}
-        </div>
-      </div>
-      <div class="badge-row">
-        ${s.site ? `<span class="badge badge-site"><i class="ti ti-map-pin" style="font-size:12px"></i>${escHtml(s.site)}</span>` : ''}
-        ${s.service ? `<span class="badge"><i class="ti ti-building-hospital" style="font-size:12px"></i>${escHtml(s.service)}</span>` : ''}
-      </div>
-      ${s.tel ? `<div class="card-info"><i class="ti ti-phone"></i><span>${escHtml(s.tel)}</span></div>` : ''}
-      ${s.abrege ? `<div class="card-info"><i class="ti ti-pound"></i><span>Abrégé : ${escHtml(s.abrege)}</span></div>` : ''}
-      ${s.commentaire ? `<div class="card-comment">${escHtml(s.commentaire)}</div>` : ''}
-      <div class="card-actions">
-        <button class="btn btn-sm" onclick="openEdit(${s.id})"><i class="ti ti-edit"></i> Modifier</button>
-        <button class="btn btn-sm btn-danger" onclick="deleteMember(${s.id})"><i class="ti ti-trash"></i> Supprimer</button>
-      </div>
-    </div>`;
-  }).join('');
+  $("empty-state").hidden = true;
+  tbody.innerHTML = filtered.map(renderRow).join("");
 }
 
-function escHtml(str) {
-  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function renderRow(record) {
+  const color = avatarColor(record.nom + record.prenom);
+  const phones = splitValues(record.tel);
+  const extensions = splitValues(record.abrege);
+  const title = [record.titre, record.prenom, record.nom].filter(Boolean).join(" ");
+  const incomplete = isIncomplete(record);
+
+  return `<tr data-id="${escHtml(record.id)}" class="${record.actif ? "" : "inactive"}">
+    <td>
+      <div class="person-cell">
+        <div class="avatar" style="background:${color.bg};color:${color.color}">${escHtml(initials(record.prenom, record.nom))}</div>
+        <div>
+          <div class="person-name">${escHtml(title)}</div>
+          <div class="person-sub">
+            ${record.actif ? "" : '<span class="badge badge-inactive">Désactivée</span> '}
+            ${incomplete ? '<span class="badge badge-warning">À compléter</span>' : escHtml(record.commentaire || "")}
+          </div>
+        </div>
+      </div>
+    </td>
+    <td><div class="ellipsis" title="${escHtml(record.fonction)}">${record.fonction ? escHtml(record.fonction) : '<span class="muted">—</span>'}</div></td>
+    <td class="service-cell">${record.service ? escHtml(record.service) : '<span class="muted">—</span>'}</td>
+    <td>${record.site ? `<span class="badge badge-site"><i class="ti ti-map-pin"></i>${escHtml(record.site)}</span>` : '<span class="muted">—</span>'}</td>
+    <td>${renderPhoneList(phones)}</td>
+    <td>${renderExtensionList(extensions)}</td>
+    <td class="hide-mobile nowrap">${record.updatedAt ? `<span title="${escHtml(record.updatedBy || "")}">${escHtml(formatDate(record.updatedAt))}</span>` : '<span class="muted">—</span>'}</td>
+    <td>
+      <div class="row-actions">
+        <button class="btn btn-sm btn-icon" type="button" data-action="report" data-id="${escHtml(record.id)}" title="Signaler une correction" aria-label="Signaler une correction"><i class="ti ti-message-report"></i></button>
+        <button class="btn btn-sm btn-icon admin-only" type="button" data-action="edit" data-id="${escHtml(record.id)}" title="Modifier" aria-label="Modifier"><i class="ti ti-edit"></i></button>
+        ${record.actif
+          ? `<button class="btn btn-sm btn-icon btn-danger admin-only" type="button" data-action="deactivate" data-id="${escHtml(record.id)}" title="Désactiver" aria-label="Désactiver"><i class="ti ti-user-off"></i></button>`
+          : `<button class="btn btn-sm btn-icon admin-only" type="button" data-action="restore" data-id="${escHtml(record.id)}" title="Réactiver" aria-label="Réactiver"><i class="ti ti-user-check"></i></button>`}
+      </div>
+    </td>
+  </tr>`;
 }
-function escAttr(str) { return escHtml(str); }
+
+function renderPhoneList(values) {
+  if (!values.length) return '<span class="muted">—</span>';
+  return `<div class="number-list">${values.map(value => {
+    const digits = value.replace(/\D/g, "");
+    return `<a class="number-link" href="tel:${escHtml(digits)}"><i class="ti ti-phone"></i>${escHtml(value)}</a><button class="copy-btn" type="button" data-copy="${escHtml(value)}" title="Copier"><i class="ti ti-copy"></i></button>`;
+  }).join("")}</div>`;
+}
+function renderExtensionList(values) {
+  if (!values.length) return '<span class="muted">—</span>';
+  return `<div class="number-list">${values.map(value => `<span class="badge">${escHtml(value)}</span><button class="copy-btn" type="button" data-copy="${escHtml(value)}" title="Copier"><i class="ti ti-copy"></i></button>`).join("")}</div>`;
+}
+function renderEmpty(message, icon = "ti-search") {
+  $("directory-body").innerHTML = "";
+  $("empty-state").hidden = false;
+  $("empty-state").innerHTML = `<i class="ti ${icon}"></i><span>${escHtml(message)}</span>`;
+}
+function updateSyncLabel() {
+  const value = meta.lastUpdated || meta.updatedAt || new Date().toISOString();
+  $("last-update-label").textContent = `Dernière synchronisation : ${formatDate(value, true)}`;
+}
+
+function openModal(id, focusId) {
+  lastFocusedElement = document.activeElement;
+  const modal = $(id);
+  modal.hidden = false;
+  document.body.style.overflow = "hidden";
+  setTimeout(() => $(focusId)?.focus(), 0);
+}
+function closeModal(id) {
+  $(id).hidden = true;
+  if (![...document.querySelectorAll(".modal-bg")].some(el => !el.hidden)) document.body.style.overflow = "";
+  if (lastFocusedElement && typeof lastFocusedElement.focus === "function") lastFocusedElement.focus();
+}
 
 function openAdd() {
   editId = null;
-  document.getElementById('modal-title').textContent = 'Nouvelle fiche';
-  document.getElementById('f-site').value = 'Montdidier';
-  document.getElementById('f-titre').value = 'Monsieur';
-  document.getElementById('f-prenom').value = '';
-  document.getElementById('f-nom').value = '';
-  document.getElementById('f-service').value = '';
-  document.getElementById('f-fonction').value = '';
-  document.getElementById('f-tel').value = '';
-  document.getElementById('f-abrege').value = '';
-  document.getElementById('f-commentaire').value = '';
-  document.getElementById('f-tel-hint').textContent = 'Format français : 10 chiffres';
-  document.getElementById('f-tel-hint').classList.remove('error');
-  document.getElementById('f-abrege-hint').textContent = '4 chiffres';
-  document.getElementById('f-abrege-hint').classList.remove('error');
-  document.getElementById('modal').style.display = 'flex';
-  document.getElementById('f-prenom').focus();
+  $("member-modal-title").textContent = "Nouvelle fiche";
+  fillMemberForm({site: settings.sites[0] || "Montdidier", titre:"Monsieur"});
+  openModal("member-modal", "f-prenom");
 }
-
 function openEdit(id) {
-  editId = id;
-  const s = staff.find(x => String(x.id) === String(id));
-  if (!s) return;
-  document.getElementById('modal-title').textContent = 'Modifier la fiche';
-  document.getElementById('f-site').value = s.site || 'Montdidier';
-  document.getElementById('f-titre').value = s.titre || 'Monsieur';
-  document.getElementById('f-prenom').value = s.prenom || '';
-  document.getElementById('f-nom').value = s.nom || '';
-  document.getElementById('f-service').value = s.service || '';
-  document.getElementById('f-fonction').value = s.fonction || '';
-  document.getElementById('f-tel').value = s.tel || '';
-  document.getElementById('f-abrege').value = s.abrege || '';
-  document.getElementById('f-commentaire').value = s.commentaire || '';
-  document.getElementById('f-tel-hint').textContent = 'Format français : 10 chiffres';
-  document.getElementById('f-tel-hint').classList.remove('error');
-  document.getElementById('f-abrege-hint').textContent = '4 chiffres';
-  document.getElementById('f-abrege-hint').classList.remove('error');
-  document.getElementById('modal').style.display = 'flex';
+  const record = staff.find(item => item.id === String(id));
+  if (!record) return;
+  editId = record.id;
+  $("member-modal-title").textContent = "Modifier la fiche";
+  fillMemberForm(record);
+  openModal("member-modal", "f-prenom");
 }
-
-function closeModal() {
-  document.getElementById('modal').style.display = 'none';
+function fillMemberForm(record) {
+  fillSelect($("f-site"), cleanList([...settings.sites, record.site].join("\n")), null, record.site || settings.sites[0]);
+  fillSelect($("f-service"), cleanList([...settings.services, record.service].join("\n")), "Sans service", record.service || "");
+  fillSelect($("f-fonction"), cleanList([...settings.functions, record.fonction].join("\n")), "Sans fonction", record.fonction || "");
+  $("f-titre").value = record.titre || "";
+  $("f-prenom").value = record.prenom || "";
+  $("f-nom").value = record.nom || "";
+  $("f-tel").value = record.tel || "";
+  $("f-abrege").value = record.abrege || "";
+  $("f-commentaire").value = record.commentaire || "";
+  clearFieldErrors();
 }
-
-async function saveModal() {
-  const prenom = document.getElementById('f-prenom').value.trim();
-  const nom = document.getElementById('f-nom').value.trim();
-  const tel = document.getElementById('f-tel').value.trim();
-  const abrege = document.getElementById('f-abrege').value.trim();
-
-  if (!prenom || !nom) {
-    alert('Le prénom et le nom sont obligatoires.');
-    return;
-  }
-  const telDigits = tel.replace(/\D/g, '');
-  if (tel && telDigits.length !== 10) {
-    alert('Le numéro de téléphone doit contenir 10 chiffres (format français).');
-    return;
-  }
-  if (abrege && abrege.length !== 4) {
-    alert('Le numéro abrégé doit contenir exactement 4 chiffres.');
-    return;
-  }
-
+function clearFieldErrors() {
+  document.querySelectorAll(".field-error").forEach(el => el.classList.remove("field-error"));
+  $("f-tel-hint").classList.remove("error");
+  $("f-abrege-hint").classList.remove("error");
+}
+function validateMemberForm() {
+  clearFieldErrors();
   const entry = {
-    site: document.getElementById('f-site').value,
-    titre: document.getElementById('f-titre').value,
-    prenom,
-    nom,
-    service: document.getElementById('f-service').value.trim(),
-    fonction: document.getElementById('f-fonction').value.trim(),
-    tel,
-    abrege,
-    commentaire: document.getElementById('f-commentaire').value.trim()
+    site: $("f-site").value.trim(), titre: $("f-titre").value,
+    prenom: $("f-prenom").value.trim(), nom: $("f-nom").value.trim(),
+    service: $("f-service").value.trim(), fonction: $("f-fonction").value.trim(),
+    tel: splitValues($("f-tel").value).join(", "),
+    abrege: splitValues($("f-abrege").value).join(", "),
+    commentaire: $("f-commentaire").value.trim()
   };
+  let valid = true;
+  ["site","prenom","nom"].forEach(key => {
+    if (!entry[key]) { $(`f-${key}`).classList.add("field-error"); valid = false; }
+  });
+  const badPhones = splitValues(entry.tel).filter(v => v.replace(/\D/g, "").length !== 10);
+  const badExtensions = splitValues(entry.abrege).filter(v => !/^\d{4}$/.test(v));
+  if (badPhones.length) { $("f-tel").classList.add("field-error"); $("f-tel-hint").classList.add("error"); $("f-tel-hint").textContent = `Numéro(s) invalide(s) : ${badPhones.join(", ")}`; valid = false; }
+  if (badExtensions.length) { $("f-abrege").classList.add("field-error"); $("f-abrege-hint").classList.add("error"); $("f-abrege-hint").textContent = `Abrégé(s) invalide(s) : ${badExtensions.join(", ")}`; valid = false; }
+  return valid ? entry : null;
+}
 
-  if (isSaving) return;
-  isSaving = true;
-  setSaveButtonLoading(true);
-
+async function saveMember(force = false) {
+  const entry = validateMemberForm();
+  if (!entry) { toast("Veuillez corriger les champs signalés.", "error"); return; }
+  if (editId) entry.uuid = editId;
+  const btn = $("save-btn");
+  setButtonLoading(btn, true, "Enregistrement…");
   try {
-    if (editId != null) {
-      entry.id = editId;
-      await apiPost({ action: 'update', entry });
-    } else {
-      await apiPost({ action: 'add', entry });
+    await apiPost({action: editId ? "update" : "add", token: adminToken, entry, force});
+    closeModal("member-modal");
+    toast(editId ? "Fiche mise à jour." : "Fiche ajoutée.");
+    await refreshAdminData();
+  } catch (error) {
+    if (error.code === "DUPLICATE" && !force) {
+      const names = (error.details.duplicates || []).map(item => personLabel(item)).join(", ");
+      if (confirm(`Une ou plusieurs fiches proches existent déjà : ${names || "fiche similaire"}. Enregistrer malgré tout ?`)) return await saveMember(true);
     }
-    closeModal();
-    await loadData();
-  } catch (e) {
-    alert("Erreur lors de l'enregistrement : " + e.message);
-  } finally {
-    isSaving = false;
-    setSaveButtonLoading(false);
-  }
+    if (error.code === "UNAUTHORIZED") exitAdmin("Votre session administrateur a expiré.");
+    else toast(`Enregistrement impossible : ${error.message}`, "error");
+  } finally { setButtonLoading(btn, false, "Enregistrer", "ti-check"); }
 }
 
-function setSaveButtonLoading(on) {
-  const btn = document.getElementById('save-btn');
-  if (!btn) return;
-  btn.disabled = on;
-  btn.innerHTML = on
-    ? '<i class="ti ti-loader-2"></i> Enregistrement…'
-    : '<i class="ti ti-check"></i> Enregistrer';
-}
-
-async function deleteMember(id) {
-  const s = staff.find(x => String(x.id) === String(id));
-  if (!s) return;
-  if (!confirm(`Supprimer la fiche de ${s.prenom} ${s.nom} ?`)) return;
+async function changeStatus(id, active) {
+  const record = staff.find(item => item.id === String(id));
+  if (!record) return;
+  const verb = active ? "réactiver" : "désactiver";
+  if (!confirm(`Voulez-vous ${verb} la fiche de ${personLabel(record)} ?`)) return;
   try {
-    await apiPost({ action: 'delete', id });
-    await loadData();
-  } catch (e) {
-    alert("Erreur lors de la suppression : " + e.message);
+    await apiPost({action: active ? "restore" : "deactivate", token: adminToken, uuid: record.id});
+    toast(active ? "Fiche réactivée." : "Fiche désactivée.");
+    await refreshAdminData();
+  } catch (error) {
+    if (error.code === "UNAUTHORIZED") exitAdmin("Votre session administrateur a expiré.");
+    else toast(error.message, "error");
   }
 }
 
-function openPrintModal() {
-  document.getElementById('print-modal').style.display = 'flex';
+function openReport(id) {
+  const record = staff.find(item => item.id === String(id));
+  if (!record) return;
+  reportId = record.id;
+  $("report-person-label").textContent = `Fiche concernée : ${personLabel(record)} — ${record.service || "sans service"}`;
+  $("report-message").value = "";
+  $("report-contact").value = "";
+  openModal("report-modal", "report-message");
 }
-function closePrintModal() {
-  document.getElementById('print-modal').style.display = 'none';
+async function submitReport() {
+  const message = $("report-message").value.trim();
+  if (!message) { $("report-message").classList.add("field-error"); return; }
+  const record = staff.find(item => item.id === reportId);
+  const btn = $("report-submit-btn");
+  setButtonLoading(btn, true, "Envoi…");
+  try {
+    await apiPost({action:"report", uuid: reportId, person: record ? personLabel(record) : "", message, contact: $("report-contact").value.trim()});
+    closeModal("report-modal");
+    toast("Le signalement a été transmis.");
+  } catch (error) { toast(`Signalement impossible : ${error.message}`, "error"); }
+  finally { setButtonLoading(btn, false, "Envoyer", "ti-send"); }
 }
 
+async function loginAdmin() {
+  const password = $("admin-password").value;
+  if (!password) return;
+  const btn = $("login-submit-btn");
+  setButtonLoading(btn, true, "Connexion…");
+  try {
+    const data = await apiPost({action:"login", password, identity: $("admin-identity").value.trim()});
+    adminToken = data.token;
+    sessionStorage.setItem("annuaireAdminToken", adminToken);
+    $("admin-password").value = "";
+    $("admin-identity").value = "";
+    closeModal("login-modal");
+    await enterAdmin(data);
+  } catch (error) { toast(`Connexion refusée : ${error.message}`, "error"); }
+  finally { setButtonLoading(btn, false, "Se connecter", "ti-login"); }
+}
+async function restoreAdminSession() {
+  try {
+    const data = await apiPost({action:"adminData", token: adminToken});
+    await enterAdmin(data, true);
+  } catch (_) {
+    sessionStorage.removeItem("annuaireAdminToken");
+    adminToken = "";
+  }
+}
+async function enterAdmin(data, silent = false) {
+  document.body.classList.add("is-admin");
+  $("mode-badge").className = "mode-badge admin";
+  $("mode-badge").innerHTML = '<i class="ti ti-shield-check"></i> Administration';
+  $("admin-login-btn").style.display = "none";
+  adminData = {history: data.history || [], reports: data.reports || []};
+  if (data.staff) staff = data.staff.map(normalizeRecord);
+  if (data.settings) settings = normalizeSettings(data.settings);
+  populateFilters();
+  applyFilters();
+  renderAdminData();
+  if (!silent) toast("Mode administration activé.");
+}
+function exitAdmin(message = "") {
+  document.body.classList.remove("is-admin");
+  $("mode-badge").className = "mode-badge";
+  $("mode-badge").innerHTML = '<i class="ti ti-eye"></i> Consultation';
+  $("admin-login-btn").style.display = "inline-flex";
+  adminToken = "";
+  sessionStorage.removeItem("annuaireAdminToken");
+  $("filterStatus").value = "active";
+  staff = staff.filter(record => record.actif);
+  applyFilters();
+  if (message) toast(message, "error");
+}
+async function logoutAdmin() {
+  try { if (adminToken) await apiPost({action:"logout", token: adminToken}); } catch (_) {}
+  exitAdmin();
+  await loadData({silent:true});
+}
+async function refreshAdminData() {
+  const data = await apiPost({action:"adminData", token: adminToken});
+  await enterAdmin(data, true);
+}
+
+function openAdminTools() {
+  $("settings-sites").value = settings.sites.join("\n");
+  $("settings-services").value = settings.services.join("\n");
+  $("settings-functions").value = settings.functions.join("\n");
+  renderAdminData();
+  openModal("admin-modal", null);
+}
+function renderAdminData() {
+  $("history-list").innerHTML = adminData.history.length ? adminData.history.map(item => `
+    <div class="history-item"><div class="history-main"><span class="history-action">${escHtml(item.action || "Modification")}</span><span>${escHtml(formatDate(item.timestamp, true))}</span></div>
+    <div>${escHtml(item.person || item.uuid || "")}</div><div class="history-meta">${escHtml(item.user || "Utilisateur non identifié")}</div></div>`).join("") : '<div class="empty"><i class="ti ti-history"></i>Aucun historique.</div>';
+  $("reports-list").innerHTML = adminData.reports.length ? adminData.reports.map(item => `
+    <div class="history-item"><div class="history-main"><span class="history-action">${escHtml(item.person || "Signalement")}</span><span>${escHtml(formatDate(item.timestamp, true))}</span></div>
+    <div>${escHtml(item.message || "")}</div><div class="history-meta">${escHtml(item.contact || "Anonyme")} · ${escHtml(item.status || "Nouveau")}</div></div>`).join("") : '<div class="empty"><i class="ti ti-message-report"></i>Aucun signalement.</div>';
+}
+async function saveSettings() {
+  const payload = {
+    sites: cleanList($("settings-sites").value),
+    services: cleanList($("settings-services").value),
+    functions: cleanList($("settings-functions").value)
+  };
+  if (!payload.sites.length) { toast("Ajoutez au moins un site.", "error"); return; }
+  const btn = $("save-settings-btn");
+  setButtonLoading(btn, true, "Enregistrement…");
+  try {
+    const data = await apiPost({action:"saveSettings", token:adminToken, settings:payload});
+    settings = normalizeSettings(data.settings || payload);
+    populateFilters();
+    toast("Listes mises à jour.");
+  } catch (error) { toast(error.message, "error"); }
+  finally { setButtonLoading(btn, false, "Enregistrer les listes", "ti-device-floppy"); }
+}
+
+function clearFilters() {
+  $("search").value = ""; $("filterSite").value = ""; $("filterService").value = "";
+  $("filterCompleteness").value = ""; $("filterStatus").value = "active"; $("sortBy").value = "name";
+  applyFilters();
+}
+
+function openPrint() { openModal("print-modal", "print-site"); }
 function generatePrintView() {
-  const site = document.getElementById('print-site').value;
-  const list = site ? staff.filter(s => s.site === site) : staff.slice();
-
-  const byService = {};
-  list.forEach(s => {
-    const key = s.service || 'Sans service';
-    if (!byService[key]) byService[key] = [];
-    byService[key].push(s);
-  });
-  const services = Object.keys(byService).sort((a,b) => a.localeCompare(b, 'fr'));
-  services.forEach(svc => {
-    byService[svc].sort((a,b) => (a.nom||'').localeCompare(b.nom||'', 'fr'));
-  });
-
-  const dateStr = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
-  const siteLabel = site || 'Tous les sites';
-
-  let html = `
-    <div class="listing-header">
-      <h1>Annuaire du personnel — ${escHtml(siteLabel)}</h1>
-      <div class="listing-meta">Liste générée le ${dateStr} · ${list.length} personne(s)</div>
-    </div>
-  `;
-
-  if (!list.length) {
-    html += `<p>Aucune fiche pour ce site.</p>`;
-  } else {
-    services.forEach(svc => {
-      html += `<div class="listing-service">
-        <h2>${escHtml(svc)} (${byService[svc].length})</h2>
-        <table class="listing-table">
-          <thead><tr><th>Nom</th><th>Fonction</th><th>Téléphone</th><th>Abrégé</th>${site ? '' : '<th>Site</th>'}</tr></thead>
-          <tbody>
-            ${byService[svc].map(s => `<tr>
-              <td>${s.titre ? escHtml(s.titre) + ' ' : ''}${escHtml(s.prenom)} ${escHtml(s.nom)}</td>
-              <td>${escHtml(s.fonction)}</td>
-              <td>${escHtml(s.tel)}</td>
-              <td>${escHtml(s.abrege)}</td>
-              ${site ? '' : `<td>${escHtml(s.site)}</td>`}
-            </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>`;
-    });
-  }
-
-  document.getElementById('print-view').innerHTML = html;
-  closePrintModal();
+  const site = $("print-site").value;
+  const serviceFilter = $("print-service").value;
+  const list = staff.filter(r => r.actif && (!site || r.site === site) && (!serviceFilter || r.service === serviceFilter));
+  const grouped = {};
+  list.forEach(record => { const key = record.service || "Sans service"; (grouped[key] ||= []).push(record); });
+  const collator = new Intl.Collator("fr", {sensitivity:"base"});
+  Object.values(grouped).forEach(group => group.sort((a,b) => collator.compare(a.nom,b.nom)));
+  const services = Object.keys(grouped).sort(collator.compare);
+  const title = [site || "Tous les sites", serviceFilter || "Tous les services"].join(" — ");
+  $("print-view").innerHTML = `<div class="listing-header"><h1>Annuaire du personnel — ${escHtml(title)}</h1><div class="listing-meta">Liste générée le ${escHtml(formatDate(new Date().toISOString(), true))} · ${list.length} personne(s)</div></div>` +
+    (services.length ? services.map(service => `<div class="listing-service"><h2>${escHtml(service)} (${grouped[service].length})</h2><table class="listing-table"><thead><tr><th>Nom</th><th>Fonction</th><th>Téléphone</th><th>Abrégé</th><th>Site</th></tr></thead><tbody>${grouped[service].map(record => `<tr><td>${escHtml([record.titre,record.prenom,record.nom].filter(Boolean).join(" "))}</td><td>${escHtml(record.fonction)}</td><td>${escHtml(record.tel)}</td><td>${escHtml(record.abrege)}</td><td>${escHtml(record.site)}</td></tr>`).join("")}</tbody></table></div>`).join("") : "<p>Aucune fiche.</p>");
+  closeModal("print-modal");
   setTimeout(() => window.print(), 100);
 }
 
-// Chargement initial des données
+function exportExcel() {
+  if (!window.XLSX) { toast("Le module Excel n’a pas pu être chargé.", "error"); return; }
+  const rows = filtered.map(record => ({
+    UUID: record.id, Site: record.site, Titre: record.titre, Prénom: record.prenom, Nom: record.nom,
+    Service: record.service, Fonction: record.fonction, Téléphone: record.tel, "Numéro abrégé": record.abrege,
+    Commentaire: record.commentaire, Actif: record.actif ? "Oui" : "Non", "Dernière mise à jour": record.updatedAt
+  }));
+  const workbook = XLSX.utils.book_new();
+  const sheet = XLSX.utils.json_to_sheet(rows);
+  sheet["!cols"] = [{wch:38},{wch:14},{wch:12},{wch:18},{wch:22},{wch:28},{wch:26},{wch:25},{wch:18},{wch:38},{wch:10},{wch:22}];
+  XLSX.utils.book_append_sheet(workbook, sheet, "Annuaire");
+  XLSX.writeFile(workbook, `Annuaire_CHIMR_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+function setupImport() {
+  const zone = $("drop-zone");
+  ["dragenter","dragover"].forEach(event => zone.addEventListener(event, e => { e.preventDefault(); zone.classList.add("dragover"); }));
+  ["dragleave","drop"].forEach(event => zone.addEventListener(event, e => { e.preventDefault(); zone.classList.remove("dragover"); }));
+  zone.addEventListener("drop", e => handleImportFile(e.dataTransfer.files[0]));
+}
+async function handleImportFile(file) {
+  if (!file) return;
+  if (!window.XLSX) { toast("Le module Excel n’a pas pu être chargé.", "error"); return; }
+  try {
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, {type:"array", cellDates:true});
+    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rawRows = XLSX.utils.sheet_to_json(firstSheet, {defval:"", raw:false});
+    importRows = rawRows.map(mapImportRow).filter(row => Object.values(row).some(Boolean));
+    const invalid = importRows.filter(row => !row.prenom || !row.nom).length;
+    $("import-preview").innerHTML = `<div class="notice ${invalid ? "warning" : "success"}"><i class="ti ti-file-check"></i><span>${importRows.length} ligne(s) détectée(s), dont ${invalid} invalide(s).</span></div>` +
+      `<table class="listing-table"><thead><tr><th>Prénom</th><th>Nom</th><th>Service</th><th>Site</th></tr></thead><tbody>${importRows.slice(0,20).map(row => `<tr><td>${escHtml(row.prenom)}</td><td>${escHtml(row.nom)}</td><td>${escHtml(row.service)}</td><td>${escHtml(row.site)}</td></tr>`).join("")}</tbody></table>`;
+    $("run-import-btn").disabled = !importRows.length;
+  } catch (error) { toast(`Lecture impossible : ${error.message}`, "error"); }
+}
+function mapImportRow(row) {
+  const normalized = {};
+  Object.entries(row).forEach(([key,value]) => normalized[normalizeText(key).replace(/[^a-z0-9]/g,"")] = value);
+  const pick = (...keys) => keys.map(key => normalized[key]).find(value => value !== undefined && value !== "") || "";
+  return {
+    uuid: String(pick("uuid","id") || ""),
+    site: String(pick("site") || settings.sites[0] || ""),
+    titre: String(pick("titre","civilite") || ""),
+    prenom: String(pick("prenom","firstname") || "").trim(),
+    nom: String(pick("nom","lastname") || "").trim(),
+    service: String(pick("service","rubriqueservice") || "").trim(),
+    fonction: String(pick("fonction","poste","job") || "").trim(),
+    tel: String(pick("telephone","tel","telephonesexternes") || "").trim(),
+    abrege: String(pick("numeroabrege","abrege","postes") || "").trim(),
+    commentaire: String(pick("commentaire","notes") || "").trim()
+  };
+}
+async function runImport() {
+  if (!importRows.length) return;
+  const btn = $("run-import-btn");
+  setButtonLoading(btn, true, "Import…");
+  try {
+    const data = await apiPost({action:"import", token:adminToken, entries:importRows});
+    toast(`Import terminé : ${data.added || 0} ajout(s), ${data.updated || 0} mise(s) à jour, ${(data.errors || []).length} erreur(s).`);
+    importRows = []; $("import-preview").innerHTML = ""; btn.disabled = true;
+    await refreshAdminData();
+  } catch (error) { toast(`Import impossible : ${error.message}`, "error"); }
+  finally { setButtonLoading(btn, false, "Importer", "ti-upload"); }
+}
+
+function setButtonLoading(button, on, label, icon = "ti-loader-2 spinner") {
+  button.disabled = on;
+  button.innerHTML = `<i class="ti ${icon}"></i> ${escHtml(label)}`;
+}
+async function copyText(value) {
+  try { await navigator.clipboard.writeText(value); toast(`${value} copié.`); }
+  catch (_) { toast("Copie impossible sur ce navigateur.", "error"); }
+}
+
+// Événements
+$("search").addEventListener("input", applyFilters);
+["filterSite","filterService","filterCompleteness","filterStatus","sortBy"].forEach(id => $(id).addEventListener("change", applyFilters));
+$("clear-filters-btn").addEventListener("click", clearFilters);
+$("retry-btn").addEventListener("click", () => loadData());
+$("print-btn").addEventListener("click", openPrint);
+$("export-btn").addEventListener("click", exportExcel);
+$("generate-print-btn").addEventListener("click", generatePrintView);
+$("add-btn").addEventListener("click", openAdd);
+$("save-btn").addEventListener("click", () => saveMember(false));
+$("admin-login-btn").addEventListener("click", () => openModal("login-modal", "admin-password"));
+$("login-submit-btn").addEventListener("click", loginAdmin);
+$("admin-password").addEventListener("keydown", e => { if (e.key === "Enter") loginAdmin(); });
+$("admin-logout-btn").addEventListener("click", logoutAdmin);
+$("admin-tools-btn").addEventListener("click", openAdminTools);
+$("save-settings-btn").addEventListener("click", saveSettings);
+$("report-submit-btn").addEventListener("click", submitReport);
+$("choose-import-btn").addEventListener("click", () => $("import-file").click());
+$("import-file").addEventListener("change", e => handleImportFile(e.target.files[0]));
+$("run-import-btn").addEventListener("click", runImport);
+
+$("directory-body").addEventListener("click", event => {
+  const copy = event.target.closest("[data-copy]");
+  if (copy) { copyText(copy.dataset.copy); return; }
+  const button = event.target.closest("[data-action]");
+  if (!button) return;
+  const {action, id} = button.dataset;
+  if (action === "report") openReport(id);
+  if (action === "edit") openEdit(id);
+  if (action === "deactivate") changeStatus(id, false);
+  if (action === "restore") changeStatus(id, true);
+});
+
+document.querySelectorAll("[data-close]").forEach(button => button.addEventListener("click", () => closeModal(button.dataset.close)));
+document.querySelectorAll(".modal-bg").forEach(background => background.addEventListener("click", event => { if (event.target === background) closeModal(background.id); }));
+document.addEventListener("keydown", event => {
+  const modal = [...document.querySelectorAll(".modal-bg")].reverse().find(el => !el.hidden);
+  if (!modal) return;
+  if (event.key === "Escape") { closeModal(modal.id); return; }
+  if (event.key === "Tab") {
+    const focusable = [...modal.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')].filter(el => el.offsetParent !== null);
+    if (!focusable.length) return;
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  }
+});
+document.querySelectorAll(".tab-btn").forEach(button => button.addEventListener("click", () => {
+  document.querySelectorAll(".tab-btn").forEach(item => item.classList.toggle("active", item === button));
+  document.querySelectorAll(".tab-panel").forEach(panel => panel.classList.toggle("active", panel.id === button.dataset.tab));
+}));
+
+setupImport();
 loadData();
 </script>
 </body>
