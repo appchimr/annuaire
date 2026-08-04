@@ -191,7 +191,7 @@
     }
     .table-container { width: 100%; overflow-x: auto; }
     table.directory { width: 100%; border-collapse: collapse; min-width: 1080px; }
-    .directory thead { background: var(--gray-50); position: sticky; top: 60px; z-index: 5; }
+    .directory thead { background: var(--gray-50); }
     .directory th {
       height: 40px;
       padding: 8px 10px;
@@ -369,10 +369,6 @@
 </header>
 
 <main class="container">
-  <div class="notice" id="info-notice">
-    <i class="ti ti-info-circle"></i>
-    <span>Les données sont synchronisées avec Google Sheets. Utilisez « Signaler une correction » lorsqu’une information semble erronée.</span>
-  </div>
   <div class="notice" id="loading-state" hidden>
     <i class="ti ti-loader-2 spinner"></i><span>Chargement des données…</span>
   </div>
