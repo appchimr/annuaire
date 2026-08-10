@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="light">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src https://cdn.jsdelivr.net data:; connect-src https://script.google.com https://script.googleusercontent.com; img-src 'self' data:; base-uri 'self'; form-action 'self';">
   <title>Annuaire du personnel — CHIMR</title>
-  <!-- Version 2.5 : ordre d’affichage par service + multi-affectations -->
+  <!-- Version 2.5.2 : modal d'édition stabilisée + couleurs de site -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
@@ -20,6 +20,7 @@
       --blue-600: #185fa5;
       --blue-700: #0c447c;
       --green-50: #eaf7f1;
+      --green-200: #b8dfcf;
       --green-700: #176b51;
       --red-50: #fcebeb;
       --red-200: #f7c1c1;
@@ -240,7 +241,17 @@
       border: 1px solid var(--gray-200);
       background: var(--gray-100); color: var(--gray-600);
     }
-    .badge-site { background: var(--blue-50); border-color: var(--blue-100); color: var(--blue-700); }
+    .badge-site { font-weight: 650; }
+    .badge-site-montdidier {
+      background: var(--blue-50);
+      border-color: var(--blue-100);
+      color: var(--blue-700);
+    }
+    .badge-site-roye {
+      background: var(--green-50);
+      border-color: var(--green-200);
+      color: var(--green-700);
+    }
     .badge-inactive { background: var(--red-50); border-color: var(--red-200); color: var(--red-700); }
     .badge-warning { background: var(--amber-50); border-color: #f1d394; color: var(--amber-700); }
 
@@ -953,9 +964,15 @@ function renderFunctionList(values) {
   if (!values.length) return '<span class="muted">—</span>';
   return `<div class="function-lines">${values.map(value => `<span>${escHtml(value)}</span>`).join("")}</div>`;
 }
+function siteBadgeClass(value) {
+  const site = normalizeText(value);
+  if (site === "roye") return "badge-site badge-site-roye";
+  if (site === "montdidier") return "badge-site badge-site-montdidier";
+  return "badge-site badge-site-montdidier";
+}
 function renderSiteList(values) {
   if (!values.length) return '<span class="muted">—</span>';
-  return `<div class="multi-badges">${values.map(value => `<span class="badge badge-site"><i class="ti ti-map-pin"></i>${escHtml(value)}</span>`).join("")}</div>`;
+  return `<div class="multi-badges">${values.map(value => `<span class="badge ${siteBadgeClass(value)}"><i class="ti ti-map-pin"></i>${escHtml(value)}</span>`).join("")}</div>`;
 }
 
 function renderPhoneList(values) {
@@ -1472,7 +1489,19 @@ $("directory-body").addEventListener("click", event => {
 });
 
 document.querySelectorAll("[data-close]").forEach(button => button.addEventListener("click", () => closeModal(button.dataset.close)));
-document.querySelectorAll(".modal-bg").forEach(background => background.addEventListener("click", event => { if (event.target === background) closeModal(background.id); }));
+
+// Empêche une fermeture accidentelle lorsqu'on clique dans le contenu d'une fenêtre.
+document.querySelectorAll(".modal").forEach(modal => {
+  modal.addEventListener("click", event => event.stopPropagation());
+});
+
+// La fiche d'édition ne se ferme jamais par un clic autour d'elle.
+// Elle reste ouverte jusqu'à Annuler, Enregistrer ou Échap.
+document.querySelectorAll(".modal-bg").forEach(background => {
+  background.addEventListener("click", () => {
+    if (background.id !== "member-modal") closeModal(background.id);
+  });
+});
 document.addEventListener("keydown", event => {
   const modal = [...document.querySelectorAll(".modal-bg")].reverse().find(el => !el.hidden);
   if (!modal) return;
@@ -1491,6 +1520,8 @@ document.querySelectorAll(".tab-btn").forEach(button => button.addEventListener(
 }));
 
 setupImport();
+// Tri par défaut garanti à chaque nouvelle ouverture : Service → ordre → nom/libellé.
+$("sortBy").value = "service";
 loadData();
 </script>
 </body>
