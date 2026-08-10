@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="light">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src https://cdn.jsdelivr.net data:; connect-src https://script.google.com https://script.googleusercontent.com; img-src 'self' data:; base-uri 'self'; form-action 'self';">
   <title>Annuaire du personnel — CHIMR</title>
-  <!-- Version 2.4 : multi-sites, multi-fonctions, multi-téléphones et fusion des doublons -->
+  <!-- Version 2.5 : ordre d’affichage par service + multi-affectations -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
@@ -193,7 +193,7 @@
       color: var(--gray-600);
     }
     .table-container { width: 100%; overflow-x: auto; }
-    table.directory { width: 100%; border-collapse: collapse; min-width: 1080px; }
+    table.directory { width: 100%; border-collapse: collapse; min-width: 1140px; }
     .directory thead { background: var(--gray-50); }
     .directory th {
       height: 40px;
@@ -434,8 +434,8 @@
         <option value="all">Toutes les fiches</option>
       </select>
       <select id="sortBy" aria-label="Trier l’annuaire">
+        <option value="service" selected>Tri : service</option>
         <option value="name">Tri : nom</option>
-        <option value="service">Tri : service</option>
         <option value="site">Tri : site</option>
         <option value="updated">Tri : mise à jour</option>
       </select>
@@ -501,6 +501,11 @@
         <div class="repeat-list" id="f-functions-list"></div>
         <div class="repeat-actions"><button class="btn btn-sm" type="button" id="add-function-btn"><i class="ti ti-plus"></i> Ajouter une fonction</button></div>
       </div>
+    </div>
+    <div class="field admin-only block">
+      <label for="f-ordre">Ordre d’affichage dans le service</label>
+      <input type="number" id="f-ordre" min="1" step="1" inputmode="numeric" placeholder="Automatique">
+      <div class="field-hint">Facultatif. Les boutons ↑ et ↓ dans le tableau permettent aussi de modifier l’ordre.</div>
     </div>
     <div class="form-row">
       <div class="field">
@@ -708,6 +713,7 @@ function normalizeRecord(record) {
     tel: normalizeMultiValue(record.tel, true),
     abrege: record.abrege ? String(record.abrege) : "",
     commentaire: record.commentaire || "",
+    ordre: Number.isFinite(Number(record.ordre)) && Number(record.ordre) > 0 ? Number(record.ordre) : null,
     actif: record.actif === undefined ? true : isActive(record),
     updatedAt: record.updatedAt || record.updated_at || "",
     updatedBy: record.updatedBy || record.updated_by || ""
@@ -809,6 +815,14 @@ function fillSelect(select, values, emptyLabel, current) {
   if ([...select.options].some(o => o.value === current)) select.value = current;
 }
 
+function displayOrderValue(record) {
+  const value = Number(record && record.ordre);
+  return Number.isFinite(value) && value > 0 ? value : Number.MAX_SAFE_INTEGER;
+}
+function recordSortLabel(record) {
+  return [record.nom || record.titre || "", record.prenom || ""].join(" ").trim();
+}
+
 function applyFilters() {
   const queryTokens = normalizeText($("search").value).split(" ").filter(Boolean);
   const site = $("filterSite").value;
@@ -830,10 +844,14 @@ function applyFilters() {
 
   const collator = new Intl.Collator("fr", {sensitivity:"base", numeric:true});
   filtered.sort((a,b) => {
-    if (sortBy === "service") return collator.compare(a.service, b.service) || collator.compare(a.nom, b.nom);
-    if (sortBy === "site") return collator.compare(a.site, b.site) || collator.compare(a.nom, b.nom);
+    if (sortBy === "service") {
+      return collator.compare(a.service, b.service)
+        || (displayOrderValue(a) - displayOrderValue(b))
+        || collator.compare(recordSortLabel(a), recordSortLabel(b));
+    }
+    if (sortBy === "site") return collator.compare(a.site, b.site) || collator.compare(recordSortLabel(a), recordSortLabel(b));
     if (sortBy === "updated") return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
-    return collator.compare(a.nom, b.nom) || collator.compare(a.prenom, b.prenom);
+    return collator.compare(recordSortLabel(a), recordSortLabel(b));
   });
 
   renderStats();
@@ -920,6 +938,8 @@ function renderRow(record) {
     <td>
       <div class="row-actions">
         <button class="btn btn-sm btn-icon" type="button" data-action="report" data-id="${escHtml(record.id)}" title="Signaler une correction" aria-label="Signaler une correction"><i class="ti ti-message-report"></i></button>
+        ${record.actif ? `<button class="btn btn-sm btn-icon admin-only" type="button" data-action="move-up" data-id="${escHtml(record.id)}" title="Monter dans le service" aria-label="Monter dans le service"><i class="ti ti-arrow-up"></i></button>
+        <button class="btn btn-sm btn-icon admin-only" type="button" data-action="move-down" data-id="${escHtml(record.id)}" title="Descendre dans le service" aria-label="Descendre dans le service"><i class="ti ti-arrow-down"></i></button>` : ""}
         <button class="btn btn-sm btn-icon admin-only" type="button" data-action="edit" data-id="${escHtml(record.id)}" title="Modifier" aria-label="Modifier"><i class="ti ti-edit"></i></button>
         ${record.actif
           ? `<button class="btn btn-sm btn-icon btn-danger admin-only" type="button" data-action="deactivate" data-id="${escHtml(record.id)}" title="Désactiver" aria-label="Désactiver"><i class="ti ti-user-off"></i></button>`
@@ -1047,6 +1067,7 @@ function fillMemberForm(record) {
   $("f-nom").value = record.nom || "";
   $("f-abrege").value = record.abrege || "";
   $("f-commentaire").value = record.commentaire || "";
+  $("f-ordre").value = record.ordre || "";
   clearFieldErrors();
 }
 function clearFieldErrors() {
@@ -1070,7 +1091,8 @@ function validateMemberForm() {
     service: $("f-service").value.trim(), fonction: functions.join(", "),
     tel: phones.join(", "),
     abrege: uniqueValues(splitNumberValues($("f-abrege").value)).join(", "),
-    commentaire: $("f-commentaire").value.trim()
+    commentaire: $("f-commentaire").value.trim(),
+    ordre: $("f-ordre").value.trim()
   };
   let valid = true;
   if (!sites.length) {
@@ -1084,6 +1106,7 @@ function validateMemberForm() {
   });
   const badPhones = phones.filter(v => v.replace(/\D/g, "").length !== 10);
   const badExtensions = splitNumberValues(entry.abrege).filter(v => !/^\d{4}$/.test(v));
+  const badOrder = entry.ordre && (!/^\d+$/.test(entry.ordre) || Number(entry.ordre) < 1);
   if (badPhones.length) {
     [...$("f-phones-list").querySelectorAll(".phone-input")].forEach(input => {
       if (input.value.trim() && input.value.replace(/\D/g, "").length !== 10) input.classList.add("field-error");
@@ -1096,6 +1119,10 @@ function validateMemberForm() {
     $("f-abrege").classList.add("field-error");
     $("f-abrege-hint").classList.add("error");
     $("f-abrege-hint").textContent = `Abrégé(s) invalide(s) : ${badExtensions.join(", ")}`;
+    valid = false;
+  }
+  if (badOrder) {
+    $("f-ordre").classList.add("field-error");
     valid = false;
   }
   return valid ? entry : null;
@@ -1146,6 +1173,20 @@ async function saveMember(force = false) {
     if (error.code === "UNAUTHORIZED") exitAdmin("Votre session administrateur a expiré.");
     else toast(`Enregistrement impossible : ${error.message}`, "error");
   } finally { setButtonLoading(btn, false, "Enregistrer", "ti-check"); }
+}
+
+async function moveRecord(id, direction) {
+  const record = staff.find(item => item.id === String(id));
+  if (!record || !record.actif) return;
+  try {
+    await apiPost({action:"moveOrder", token:adminToken, uuid:record.id, direction});
+    $("sortBy").value = "service";
+    await refreshAdminData();
+    toast(direction === "up" ? "Contact remonté dans son service." : "Contact descendu dans son service.");
+  } catch (error) {
+    if (error.code === "UNAUTHORIZED") exitAdmin("Votre session administrateur a expiré.");
+    else toast(`Réorganisation impossible : ${error.message}`, "error");
+  }
 }
 
 async function changeStatus(id, active) {
@@ -1281,7 +1322,7 @@ async function saveSettings() {
 
 function clearFilters() {
   $("search").value = ""; $("filterSite").value = ""; $("filterService").value = "";
-  $("filterCompleteness").value = ""; $("filterStatus").value = "active"; $("sortBy").value = "name";
+  $("filterCompleteness").value = ""; $("filterStatus").value = "active"; $("sortBy").value = "service";
   applyFilters();
 }
 
@@ -1293,7 +1334,9 @@ function generatePrintView() {
   const grouped = {};
   list.forEach(record => { const key = record.service || "Sans service"; (grouped[key] ||= []).push(record); });
   const collator = new Intl.Collator("fr", {sensitivity:"base"});
-  Object.values(grouped).forEach(group => group.sort((a,b) => collator.compare(a.nom,b.nom)));
+  Object.values(grouped).forEach(group => group.sort((a,b) =>
+    (displayOrderValue(a) - displayOrderValue(b)) || collator.compare(recordSortLabel(a), recordSortLabel(b))
+  ));
   const services = Object.keys(grouped).sort(collator.compare);
   const title = [site || "Tous les sites", serviceFilter || "Tous les services"].join(" — ");
   $("print-view").innerHTML = `<div class="listing-header"><div class="listing-brand"><img class="listing-logo" src="${$("chimr-logo").src}" alt="CHIMR"><div><h1>Annuaire du personnel — ${escHtml(title)}</h1><div class="listing-meta">Liste générée le ${escHtml(formatDate(new Date().toISOString(), true))} · ${list.length} personne(s)</div></div></div></div>` +
@@ -1351,7 +1394,8 @@ function mapImportRow(row) {
     fonction: String(pick("fonction","poste","job") || "").trim(),
     tel: String(pick("telephone","tel","telephonesexternes") || "").trim(),
     abrege: String(pick("numeroabrege","abrege","postes") || "").trim(),
-    commentaire: String(pick("commentaire","notes") || "").trim()
+    commentaire: String(pick("commentaire","notes") || "").trim(),
+    ordre: String(pick("ordre","ordredaffichage","priorite") || "").trim()
   };
 }
 async function runImport() {
@@ -1420,6 +1464,8 @@ $("directory-body").addEventListener("click", event => {
   if (!button) return;
   const {action, id} = button.dataset;
   if (action === "report") openReport(id);
+  if (action === "move-up") moveRecord(id, "up");
+  if (action === "move-down") moveRecord(id, "down");
   if (action === "edit") openEdit(id);
   if (action === "deactivate") changeStatus(id, false);
   if (action === "restore") changeStatus(id, true);
