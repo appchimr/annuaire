@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="light">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src https://cdn.jsdelivr.net data:; connect-src https://script.google.com https://script.googleusercontent.com; img-src 'self' data:; base-uri 'self'; form-action 'self';">
   <title>Annuaire du personnel — CHIMR</title>
-  <!-- Version 2.7 : site déduit automatiquement des coordonnées -->
+  <!-- Version 2.7.1 : colonne Site en première position -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
@@ -491,10 +491,10 @@
       <table class="directory">
         <thead>
           <tr>
+            <th>Site</th>
             <th>Personnel</th>
             <th>Fonction</th>
             <th>Service</th>
-            <th>Site</th>
             <th>Téléphone</th>
             <th>Abrégé</th>
             <th class="hide-mobile">Mise à jour</th>
@@ -1024,6 +1024,7 @@ function renderRow(record) {
   const incomplete = isIncomplete(record);
 
   return `<tr data-id="${escHtml(record.id)}" class="${record.actif ? "" : "inactive"}">
+    <td>${renderSiteList(splitValues(record.site))}</td>
     <td>
       <div class="person-cell">
         <div class="avatar" style="background:${color.bg};color:${color.color}">${escHtml(initials(record.prenom, record.nom))}</div>
@@ -1039,7 +1040,6 @@ function renderRow(record) {
     </td>
     <td>${renderFunctionList(splitValues(record.fonction))}</td>
     <td class="service-cell">${record.service ? escHtml(record.service) : '<span class="muted">—</span>'}</td>
-    <td>${renderSiteList(splitValues(record.site))}</td>
     <td>${renderPhoneContacts(contacts)}</td>
     <td>${renderExtensionContacts(contacts)}</td>
     <td class="hide-mobile nowrap">${record.updatedAt ? `<span title="${escHtml(record.updatedBy || "")}">${escHtml(formatDate(record.updatedAt))}</span>` : '<span class="muted">—</span>'}</td>
@@ -1501,7 +1501,7 @@ function generatePrintView() {
   const services = Object.keys(grouped).sort((a,b) => compareServices(a,b,collator));
   const title = [site || "Tous les sites", serviceFilter || "Tous les services"].join(" — ");
   $("print-view").innerHTML = `<div class="listing-header"><div class="listing-brand"><img class="listing-logo" src="${$("chimr-logo").src}" alt="CHIMR"><div><h1>Annuaire du personnel — ${escHtml(title)}</h1><div class="listing-meta">Liste générée le ${escHtml(formatDate(new Date().toISOString(), true))} · ${list.length} personne(s)</div></div></div></div>` +
-    (services.length ? services.map(service => `<div class="listing-service"><h2>${escHtml(service)} (${grouped[service].length})</h2><table class="listing-table"><thead><tr><th>Nom</th><th>Fonction</th><th>Téléphone</th><th>Abrégé</th><th>Site</th></tr></thead><tbody>${grouped[service].map(record => `<tr><td>${escHtml([record.titre,record.prenom,record.nom].filter(Boolean).join(" "))}</td><td>${escHtml(record.fonction)}</td><td>${escHtml(contactTextForPrint(record,"tel")).replace(/\n/g,"<br>")}</td><td>${escHtml(contactTextForPrint(record,"abrege")).replace(/\n/g,"<br>")}</td><td>${escHtml(record.site)}</td></tr>`).join("")}</tbody></table></div>`).join("") : "<p>Aucune fiche.</p>");
+    (services.length ? services.map(service => `<div class="listing-service"><h2>${escHtml(service)} (${grouped[service].length})</h2><table class="listing-table"><thead><tr><th>Site</th><th>Nom</th><th>Fonction</th><th>Téléphone</th><th>Abrégé</th></tr></thead><tbody>${grouped[service].map(record => `<tr><td>${escHtml(record.site)}</td><td>${escHtml([record.titre,record.prenom,record.nom].filter(Boolean).join(" "))}</td><td>${escHtml(record.fonction)}</td><td>${escHtml(contactTextForPrint(record,"tel")).replace(/\n/g,"<br>")}</td><td>${escHtml(contactTextForPrint(record,"abrege")).replace(/\n/g,"<br>")}</td></tr>`).join("")}</tbody></table></div>`).join("") : "<p>Aucune fiche.</p>");
   closeModal("print-modal");
   setTimeout(() => window.print(), 100);
 }
