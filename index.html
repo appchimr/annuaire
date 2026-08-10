@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="light">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src https://cdn.jsdelivr.net data:; connect-src https://script.google.com https://script.googleusercontent.com; img-src 'self' data:; base-uri 'self'; form-action 'self';">
   <title>Annuaire du personnel — CHIMR</title>
-  <!-- Version 2.5.2 : modal d'édition stabilisée + couleurs de site -->
+  <!-- Version 2.6 : coordonnées téléphoniques associées aux sites -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
@@ -327,6 +327,24 @@
     .repeat-list { display: grid; gap: 7px; }
     .repeat-row { display: grid; grid-template-columns: 1fr auto; gap: 7px; align-items: center; }
     .repeat-row .btn-icon { flex: 0 0 auto; }
+    .contact-row {
+      display: grid;
+      grid-template-columns: minmax(125px,.8fr) minmax(170px,1.25fr) minmax(95px,.65fr) auto;
+      gap: 7px;
+      align-items: center;
+      padding: 8px;
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius-md);
+      background: var(--gray-50);
+    }
+    .contact-row select, .contact-row input { min-width: 0; }
+    .contact-display { display: grid; gap: 5px; }
+    .contact-display-line { display: flex; align-items: center; gap: 6px; min-height: 24px; flex-wrap: wrap; }
+    .contact-site-mini {
+      font-size: 10px; padding: 2px 6px; border-radius: 999px; border: 1px solid;
+      font-weight: 700; white-space: nowrap;
+    }
+    .contact-site-common { background: var(--gray-100); color: var(--gray-600); border-color: var(--gray-300); }
     .repeat-actions { margin-top: 7px; }
     .multi-badges { display: flex; gap: 4px; flex-wrap: wrap; }
     .function-lines { display: grid; gap: 2px; line-height: 1.25; }
@@ -386,6 +404,7 @@
       .controls { flex-direction: column; align-items: stretch; }
       .controls input, .controls select, .controls .search { width: 100%; }
       .form-row { grid-template-columns: 1fr; }
+      .contact-row { grid-template-columns: 1fr; }
       .stats { grid-template-columns: repeat(2, 1fr); }
       .modal { padding: 1rem; }
       .hide-mobile { display: none; }
@@ -518,18 +537,13 @@
       <input type="number" id="f-ordre" min="1" step="1" inputmode="numeric" placeholder="Automatique">
       <div class="field-hint">Facultatif. Les boutons ↑ et ↓ dans le tableau permettent aussi de modifier l’ordre.</div>
     </div>
-    <div class="form-row">
-      <div class="field">
-        <label>Téléphone(s)</label>
-        <div class="repeat-list" id="f-phones-list"></div>
-        <div class="repeat-actions"><button class="btn btn-sm" type="button" id="add-phone-btn"><i class="ti ti-plus"></i> Ajouter un téléphone</button></div>
-        <div class="field-hint" id="f-tel-hint">Format français : 10 chiffres par numéro.</div>
+    <div class="field">
+      <label>Coordonnées téléphoniques</label>
+      <div class="repeat-list" id="f-contacts-list"></div>
+      <div class="repeat-actions">
+        <button class="btn btn-sm" type="button" id="add-contact-btn"><i class="ti ti-plus"></i> Ajouter un téléphone / abrégé</button>
       </div>
-      <div class="field">
-        <label for="f-abrege">Numéro(s) abrégé(s)</label>
-        <input type="text" id="f-abrege" placeholder="7155, 7030">
-        <div class="field-hint" id="f-abrege-hint">Plusieurs abrégés possibles, séparés par une virgule ; 4 chiffres chacun.</div>
-      </div>
+      <div class="field-hint" id="f-contacts-hint">Chaque ligne peut être associée à Montdidier, Roye, ou être commune aux sites.</div>
     </div>
     <div class="field"><label for="f-commentaire">Commentaire</label><textarea id="f-commentaire" placeholder="Disponibilité, bâtiment, étage, remarque…"></textarea></div>
     <div class="modal-actions">
@@ -711,18 +725,67 @@ async function loadData({silent = false} = {}) {
   }
 }
 
+function legacyContactsFromFlat(siteValue, telValue, abregeValue) {
+  const sites = uniqueValues(splitValues(siteValue));
+  const phones = uniqueValues(splitNumberValues(telValue));
+  const extensions = uniqueValues(splitNumberValues(abregeValue));
+  const count = Math.max(phones.length, extensions.length);
+  if (!count) return [];
+  const canMap = sites.length === 1 ||
+    (sites.length === count &&
+      (!phones.length || phones.length === count) &&
+      (!extensions.length || extensions.length === count));
+  return Array.from({length: count}, (_, index) => ({
+    site: sites.length === 1 ? sites[0] : (canMap ? (sites[index] || "") : ""),
+    tel: phones[index] || "",
+    abrege: extensions[index] || ""
+  }));
+}
+
+function normalizeContacts(raw, siteValue = "", telValue = "", abregeValue = "") {
+  let source = [];
+  if (Array.isArray(raw)) source = raw;
+  else if (typeof raw === "string" && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) source = parsed;
+    } catch (_) {}
+  }
+  if (!source.length) source = legacyContactsFromFlat(siteValue, telValue, abregeValue);
+
+  const seen = new Set();
+  return source.map(contact => ({
+    site: String(contact?.site || "").trim(),
+    tel: String(contact?.tel || "").trim(),
+    abrege: String(contact?.abrege || "").trim()
+  })).filter(contact => {
+    if (!contact.tel && !contact.abrege) return false;
+    const key = `${normalizeText(contact.site)}|${contact.tel.replace(/\D/g,"")}|${contact.abrege}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function flattenContactField(contacts, field) {
+  return uniqueValues((contacts || []).map(contact => contact[field]).filter(Boolean)).join(", ");
+}
+
 function normalizeRecord(record) {
+  const site = normalizeMultiValue(record.site);
+  const contacts = normalizeContacts(record.contacts, site, record.tel, record.abrege);
   return {
     id: String(record.uuid || record.id || ""),
     uuid: String(record.uuid || record.id || ""),
-    site: normalizeMultiValue(record.site),
+    site: site,
     titre: record.titre || "",
     prenom: record.prenom || "",
     nom: record.nom || "",
     service: record.service || "",
     fonction: normalizeMultiValue(record.fonction),
-    tel: normalizeMultiValue(record.tel, true),
-    abrege: record.abrege ? String(record.abrege) : "",
+    tel: flattenContactField(contacts, "tel") || normalizeMultiValue(record.tel, true),
+    abrege: flattenContactField(contacts, "abrege") || (record.abrege ? String(record.abrege) : ""),
+    contacts,
     commentaire: record.commentaire || "",
     ordre: Number.isFinite(Number(record.ordre)) && Number(record.ordre) > 0 ? Number(record.ordre) : null,
     actif: record.actif === undefined ? true : isActive(record),
@@ -806,7 +869,7 @@ function formatDate(value, includeTime = false) {
     : {day:"2-digit", month:"2-digit", year:"numeric"}).format(date);
 }
 function isIncomplete(record) {
-  return !splitValues(record.site).length || !record.prenom || !record.nom || (!splitValues(record.tel).length && !record.abrege) || !record.service || !splitValues(record.fonction).length;
+  return !splitValues(record.site).length || !record.prenom || !record.nom || !(record.contacts || []).length || !record.service || !splitValues(record.fonction).length;
 }
 
 function populateFilters() {
@@ -834,6 +897,26 @@ function recordSortLabel(record) {
   return [record.nom || record.titre || "", record.prenom || ""].join(" ").trim();
 }
 
+// Priorité d'affichage des services dans le tri par défaut.
+// 1. Direction
+// 2. Direction des soins
+// 3. Ressources humaines / DRH
+// 4. Tous les autres services par ordre alphabétique
+function servicePriority(service) {
+  const value = normalizeText(service);
+  if (value === "direction") return 1;
+  if (value === "direction des soins") return 2;
+  if (value === "ressources humaines" || value === "drh") return 3;
+  return 100;
+}
+
+function compareServices(serviceA, serviceB, collator) {
+  const priorityA = servicePriority(serviceA);
+  const priorityB = servicePriority(serviceB);
+  if (priorityA !== priorityB) return priorityA - priorityB;
+  return collator.compare(serviceA || "", serviceB || "");
+}
+
 function applyFilters() {
   const queryTokens = normalizeText($("search").value).split(" ").filter(Boolean);
   const site = $("filterSite").value;
@@ -856,7 +939,7 @@ function applyFilters() {
   const collator = new Intl.Collator("fr", {sensitivity:"base", numeric:true});
   filtered.sort((a,b) => {
     if (sortBy === "service") {
-      return collator.compare(a.service, b.service)
+      return compareServices(a.service, b.service, collator)
         || (displayOrderValue(a) - displayOrderValue(b))
         || collator.compare(recordSortLabel(a), recordSortLabel(b));
     }
@@ -921,8 +1004,7 @@ function renderTable() {
 
 function renderRow(record) {
   const color = avatarColor(record.nom + record.prenom);
-  const phones = splitNumberValues(record.tel);
-  const extensions = splitNumberValues(record.abrege);
+  const contacts = normalizeContacts(record.contacts, record.site, record.tel, record.abrege);
   const title = [record.titre, record.prenom, record.nom].filter(Boolean).join(" ");
   const incomplete = isIncomplete(record);
 
@@ -943,8 +1025,8 @@ function renderRow(record) {
     <td>${renderFunctionList(splitValues(record.fonction))}</td>
     <td class="service-cell">${record.service ? escHtml(record.service) : '<span class="muted">—</span>'}</td>
     <td>${renderSiteList(splitValues(record.site))}</td>
-    <td>${renderPhoneList(phones)}</td>
-    <td>${renderExtensionList(extensions)}</td>
+    <td>${renderPhoneContacts(contacts)}</td>
+    <td>${renderExtensionContacts(contacts)}</td>
     <td class="hide-mobile nowrap">${record.updatedAt ? `<span title="${escHtml(record.updatedBy || "")}">${escHtml(formatDate(record.updatedAt))}</span>` : '<span class="muted">—</span>'}</td>
     <td>
       <div class="row-actions">
@@ -975,16 +1057,25 @@ function renderSiteList(values) {
   return `<div class="multi-badges">${values.map(value => `<span class="badge ${siteBadgeClass(value)}"><i class="ti ti-map-pin"></i>${escHtml(value)}</span>`).join("")}</div>`;
 }
 
-function renderPhoneList(values) {
+function contactSiteMini(site) {
+  if (!site) return '<span class="contact-site-mini contact-site-common">Commun</span>';
+  const cls = normalizeText(site) === "roye" ? "badge-site-roye" : "badge-site-montdidier";
+  return `<span class="contact-site-mini ${cls}">${escHtml(site)}</span>`;
+}
+function renderPhoneContacts(contacts) {
+  const values = (contacts || []).filter(contact => contact.tel);
   if (!values.length) return '<span class="muted">—</span>';
-  return `<div class="number-list">${values.map(value => {
-    const digits = value.replace(/\D/g, "");
-    return `<a class="number-link" href="tel:${escHtml(digits)}"><i class="ti ti-phone"></i>${escHtml(value)}</a><button class="copy-btn" type="button" data-copy="${escHtml(value)}" title="Copier"><i class="ti ti-copy"></i></button>`;
+  return `<div class="contact-display">${values.map(contact => {
+    const digits = contact.tel.replace(/\D/g, "");
+    return `<div class="contact-display-line">${contactSiteMini(contact.site)}<a class="number-link" href="tel:${escHtml(digits)}"><i class="ti ti-phone"></i>${escHtml(contact.tel)}</a><button class="copy-btn" type="button" data-copy="${escHtml(contact.tel)}" title="Copier"><i class="ti ti-copy"></i></button></div>`;
   }).join("")}</div>`;
 }
-function renderExtensionList(values) {
+function renderExtensionContacts(contacts) {
+  const values = (contacts || []).filter(contact => contact.abrege);
   if (!values.length) return '<span class="muted">—</span>';
-  return `<div class="number-list">${values.map(value => `<span class="badge">${escHtml(value)}</span><button class="copy-btn" type="button" data-copy="${escHtml(value)}" title="Copier"><i class="ti ti-copy"></i></button>`).join("")}</div>`;
+  return `<div class="contact-display">${values.map(contact =>
+    `<div class="contact-display-line">${contactSiteMini(contact.site)}<span class="badge">${escHtml(contact.abrege)}</span><button class="copy-btn" type="button" data-copy="${escHtml(contact.abrege)}" title="Copier"><i class="ti ti-copy"></i></button></div>`
+  ).join("")}</div>`;
 }
 function renderEmpty(message, icon = "ti-search") {
   $("directory-body").innerHTML = "";
@@ -1058,31 +1149,56 @@ function selectedFunctions() {
   return uniqueValues([...$("f-functions-list").querySelectorAll(".function-input")].map(select => select.value.trim()).filter(Boolean));
 }
 
-function addPhoneRow(value = "") {
+function contactSiteOptions(selected = "") {
+  const allowed = uniqueValues([...selectedSites(), selected].filter(Boolean));
+  return `<option value="">Commun aux sites</option>` + allowed.map(site =>
+    `<option value="${escHtml(site)}"${normalizeText(site) === normalizeText(selected) ? " selected" : ""}>${escHtml(site)}</option>`
+  ).join("");
+}
+function addContactRow(contact = {}) {
   const row = document.createElement("div");
-  row.className = "repeat-row";
-  row.innerHTML = `<input class="phone-input" type="text" inputmode="tel" placeholder="03 22 73 45 04" value="${escHtml(value)}" aria-label="Téléphone">
-    <button class="btn btn-sm btn-icon remove-repeat-btn" type="button" title="Retirer ce téléphone" aria-label="Retirer ce téléphone"><i class="ti ti-x"></i></button>`;
-  $("f-phones-list").appendChild(row);
+  row.className = "contact-row";
+  const preferredSite = contact.site || (selectedSites().length === 1 ? selectedSites()[0] : "");
+  row.innerHTML = `<select class="contact-site-input" aria-label="Site de cette coordonnée">${contactSiteOptions(preferredSite)}</select>
+    <input class="contact-phone-input" type="text" inputmode="tel" placeholder="03 22 78 70 22" value="${escHtml(contact.tel || "")}" aria-label="Téléphone">
+    <input class="contact-extension-input" type="text" inputmode="numeric" maxlength="4" placeholder="7022" value="${escHtml(contact.abrege || "")}" aria-label="Numéro abrégé">
+    <button class="btn btn-sm btn-icon remove-repeat-btn" type="button" title="Retirer cette coordonnée" aria-label="Retirer cette coordonnée"><i class="ti ti-x"></i></button>`;
+  $("f-contacts-list").appendChild(row);
 }
-function renderPhoneRows(values) {
-  $("f-phones-list").innerHTML = "";
-  const list = uniqueValues(values);
-  (list.length ? list : [""]).forEach(addPhoneRow);
+function renderContactRows(contacts) {
+  $("f-contacts-list").innerHTML = "";
+  const list = normalizeContacts(contacts);
+  (list.length ? list : [{}]).forEach(addContactRow);
 }
-function selectedPhones() {
-  return uniqueValues([...$("f-phones-list").querySelectorAll(".phone-input")].map(input => input.value.trim()).filter(Boolean));
+function selectedContacts() {
+  const result = [];
+  $("f-contacts-list").querySelectorAll(".contact-row").forEach(row => {
+    const contact = {
+      site: row.querySelector(".contact-site-input").value.trim(),
+      tel: row.querySelector(".contact-phone-input").value.trim(),
+      abrege: row.querySelector(".contact-extension-input").value.trim()
+    };
+    if (contact.tel || contact.abrege) result.push(contact);
+  });
+  return normalizeContacts(result);
+}
+function refreshContactSiteOptions() {
+  $("f-contacts-list").querySelectorAll(".contact-row").forEach(row => {
+    const select = row.querySelector(".contact-site-input");
+    const current = select.value;
+    select.innerHTML = contactSiteOptions(current);
+    if ([...select.options].some(option => option.value === current)) select.value = current;
+  });
 }
 
 function fillMemberForm(record) {
   renderSiteChoices(splitValues(record.site || settings.sites[0] || "Montdidier"));
   fillSelect($("f-service"), cleanList([...settings.services, record.service].join("\n")), "Sans service", record.service || "");
   renderFunctionRows(splitValues(record.fonction));
-  renderPhoneRows(splitNumberValues(record.tel));
+  renderContactRows(normalizeContacts(record.contacts, record.site, record.tel, record.abrege));
   $("f-titre").value = record.titre || "";
   $("f-prenom").value = record.prenom || "";
   $("f-nom").value = record.nom || "";
-  $("f-abrege").value = record.abrege || "";
   $("f-commentaire").value = record.commentaire || "";
   $("f-ordre").value = record.ordre || "";
   clearFieldErrors();
@@ -1091,26 +1207,26 @@ function clearFieldErrors() {
   document.querySelectorAll(".field-error").forEach(el => el.classList.remove("field-error"));
   $("f-sites").classList.remove("field-error");
   $("f-sites-hint").classList.remove("error");
-  $("f-tel-hint").classList.remove("error");
-  $("f-abrege-hint").classList.remove("error");
+  $("f-contacts-hint").classList.remove("error");
   $("f-sites-hint").textContent = "Une même personne peut être affectée à plusieurs sites.";
-  $("f-tel-hint").textContent = "Format français : 10 chiffres par numéro.";
-  $("f-abrege-hint").textContent = "Plusieurs abrégés possibles, séparés par une virgule ; 4 chiffres chacun.";
+  $("f-contacts-hint").textContent = "Chaque ligne peut être associée à Montdidier, Roye, ou être commune aux sites.";
 }
 function validateMemberForm() {
   clearFieldErrors();
   const sites = selectedSites();
   const functions = selectedFunctions();
-  const phones = selectedPhones();
+  const contacts = selectedContacts();
   const entry = {
     site: sites.join(", "), titre: $("f-titre").value,
     prenom: $("f-prenom").value.trim(), nom: $("f-nom").value.trim(),
     service: $("f-service").value.trim(), fonction: functions.join(", "),
-    tel: phones.join(", "),
-    abrege: uniqueValues(splitNumberValues($("f-abrege").value)).join(", "),
+    contacts,
+    tel: flattenContactField(contacts, "tel"),
+    abrege: flattenContactField(contacts, "abrege"),
     commentaire: $("f-commentaire").value.trim(),
     ordre: $("f-ordre").value.trim()
   };
+
   let valid = true;
   if (!sites.length) {
     $("f-sites").classList.add("field-error");
@@ -1121,26 +1237,48 @@ function validateMemberForm() {
   ["prenom","nom"].forEach(key => {
     if (!entry[key]) { $(`f-${key}`).classList.add("field-error"); valid = false; }
   });
-  const badPhones = phones.filter(v => v.replace(/\D/g, "").length !== 10);
-  const badExtensions = splitNumberValues(entry.abrege).filter(v => !/^\d{4}$/.test(v));
+
+  const selectedSiteKeys = new Set(sites.map(normalizeText));
+  const errors = [];
+  $("f-contacts-list").querySelectorAll(".contact-row").forEach(row => {
+    const siteInput = row.querySelector(".contact-site-input");
+    const phoneInput = row.querySelector(".contact-phone-input");
+    const extInput = row.querySelector(".contact-extension-input");
+    const tel = phoneInput.value.trim();
+    const ext = extInput.value.trim();
+    const site = siteInput.value.trim();
+
+    phoneInput.classList.remove("field-error");
+    extInput.classList.remove("field-error");
+    siteInput.classList.remove("field-error");
+
+    if (!tel && !ext) return;
+    if (site && !selectedSiteKeys.has(normalizeText(site))) {
+      siteInput.classList.add("field-error");
+      errors.push(`site ${site} non sélectionné`);
+      valid = false;
+    }
+    if (tel && tel.replace(/\D/g, "").length !== 10) {
+      phoneInput.classList.add("field-error");
+      errors.push(`téléphone ${tel}`);
+      valid = false;
+    }
+    if (ext && !/^\d{4}$/.test(ext)) {
+      extInput.classList.add("field-error");
+      errors.push(`abrégé ${ext}`);
+      valid = false;
+    }
+  });
+
   const badOrder = entry.ordre && (!/^\d+$/.test(entry.ordre) || Number(entry.ordre) < 1);
-  if (badPhones.length) {
-    [...$("f-phones-list").querySelectorAll(".phone-input")].forEach(input => {
-      if (input.value.trim() && input.value.replace(/\D/g, "").length !== 10) input.classList.add("field-error");
-    });
-    $("f-tel-hint").classList.add("error");
-    $("f-tel-hint").textContent = `Numéro(s) invalide(s) : ${badPhones.join(", ")}`;
-    valid = false;
-  }
-  if (badExtensions.length) {
-    $("f-abrege").classList.add("field-error");
-    $("f-abrege-hint").classList.add("error");
-    $("f-abrege-hint").textContent = `Abrégé(s) invalide(s) : ${badExtensions.join(", ")}`;
-    valid = false;
-  }
   if (badOrder) {
     $("f-ordre").classList.add("field-error");
     valid = false;
+  }
+
+  if (errors.length) {
+    $("f-contacts-hint").classList.add("error");
+    $("f-contacts-hint").textContent = "Vérifiez les coordonnées signalées : " + errors.join(", ") + ".";
   }
   return valid ? entry : null;
 }
@@ -1343,6 +1481,21 @@ function clearFilters() {
   applyFilters();
 }
 
+function contactTextForPrint(record, field) {
+  const contacts = normalizeContacts(record.contacts, record.site, record.tel, record.abrege).filter(contact => contact[field]);
+  if (!contacts.length) return "—";
+  return contacts.map(contact => `${contact.site || "Commun"} — ${contact[field]}`).join("\n");
+}
+function contactsSummary(record) {
+  const contacts = normalizeContacts(record.contacts, record.site, record.tel, record.abrege);
+  return contacts.map(contact => {
+    const parts = [contact.site || "Commun aux sites"];
+    if (contact.tel) parts.push(contact.tel);
+    if (contact.abrege) parts.push(`abrégé ${contact.abrege}`);
+    return parts.join(" — ");
+  }).join(" | ");
+}
+
 function openPrint() { openModal("print-modal", "print-site"); }
 function generatePrintView() {
   const site = $("print-site").value;
@@ -1354,10 +1507,10 @@ function generatePrintView() {
   Object.values(grouped).forEach(group => group.sort((a,b) =>
     (displayOrderValue(a) - displayOrderValue(b)) || collator.compare(recordSortLabel(a), recordSortLabel(b))
   ));
-  const services = Object.keys(grouped).sort(collator.compare);
+  const services = Object.keys(grouped).sort((a,b) => compareServices(a,b,collator));
   const title = [site || "Tous les sites", serviceFilter || "Tous les services"].join(" — ");
   $("print-view").innerHTML = `<div class="listing-header"><div class="listing-brand"><img class="listing-logo" src="${$("chimr-logo").src}" alt="CHIMR"><div><h1>Annuaire du personnel — ${escHtml(title)}</h1><div class="listing-meta">Liste générée le ${escHtml(formatDate(new Date().toISOString(), true))} · ${list.length} personne(s)</div></div></div></div>` +
-    (services.length ? services.map(service => `<div class="listing-service"><h2>${escHtml(service)} (${grouped[service].length})</h2><table class="listing-table"><thead><tr><th>Nom</th><th>Fonction</th><th>Téléphone</th><th>Abrégé</th><th>Site</th></tr></thead><tbody>${grouped[service].map(record => `<tr><td>${escHtml([record.titre,record.prenom,record.nom].filter(Boolean).join(" "))}</td><td>${escHtml(record.fonction)}</td><td>${escHtml(record.tel)}</td><td>${escHtml(record.abrege)}</td><td>${escHtml(record.site)}</td></tr>`).join("")}</tbody></table></div>`).join("") : "<p>Aucune fiche.</p>");
+    (services.length ? services.map(service => `<div class="listing-service"><h2>${escHtml(service)} (${grouped[service].length})</h2><table class="listing-table"><thead><tr><th>Nom</th><th>Fonction</th><th>Téléphone</th><th>Abrégé</th><th>Site</th></tr></thead><tbody>${grouped[service].map(record => `<tr><td>${escHtml([record.titre,record.prenom,record.nom].filter(Boolean).join(" "))}</td><td>${escHtml(record.fonction)}</td><td>${escHtml(contactTextForPrint(record,"tel")).replace(/\n/g,"<br>")}</td><td>${escHtml(contactTextForPrint(record,"abrege")).replace(/\n/g,"<br>")}</td><td>${escHtml(record.site)}</td></tr>`).join("")}</tbody></table></div>`).join("") : "<p>Aucune fiche.</p>");
   closeModal("print-modal");
   setTimeout(() => window.print(), 100);
 }
@@ -1366,7 +1519,10 @@ function exportExcel() {
   if (!window.XLSX) { toast("Le module Excel n’a pas pu être chargé.", "error"); return; }
   const rows = filtered.map(record => ({
     UUID: record.id, Site: record.site, Titre: record.titre, Prénom: record.prenom, Nom: record.nom,
-    Service: record.service, Fonction: record.fonction, Téléphone: record.tel, "Numéro abrégé": record.abrege,
+    Service: record.service, Fonction: record.fonction,
+    "Coordonnées par site": contactsSummary(record),
+    Téléphone: record.tel, "Numéro abrégé": record.abrege,
+    "Contacts JSON": JSON.stringify(record.contacts || []),
     Commentaire: record.commentaire, Actif: record.actif ? "Oui" : "Non", "Dernière mise à jour": record.updatedAt
   }));
   const workbook = XLSX.utils.book_new();
@@ -1411,6 +1567,11 @@ function mapImportRow(row) {
     fonction: String(pick("fonction","poste","job") || "").trim(),
     tel: String(pick("telephone","tel","telephonesexternes") || "").trim(),
     abrege: String(pick("numeroabrege","abrege","postes") || "").trim(),
+    contacts: (() => {
+      const raw = String(pick("contactsjson","contacts","coordonneesjson") || "").trim();
+      if (!raw) return [];
+      try { const parsed = JSON.parse(raw); return Array.isArray(parsed) ? parsed : []; } catch (_) { return []; }
+    })(),
     commentaire: String(pick("commentaire","notes") || "").trim(),
     ordre: String(pick("ordre","ordredaffichage","priorite") || "").trim()
   };
@@ -1447,7 +1608,7 @@ $("export-btn").addEventListener("click", exportExcel);
 $("generate-print-btn").addEventListener("click", generatePrintView);
 $("add-btn").addEventListener("click", openAdd);
 $("add-function-btn").addEventListener("click", () => addFunctionRow(""));
-$("add-phone-btn").addEventListener("click", () => addPhoneRow(""));
+$("add-contact-btn").addEventListener("click", () => addContactRow({}));
 $("f-functions-list").addEventListener("click", event => {
   const button = event.target.closest(".remove-repeat-btn");
   if (!button) return;
@@ -1455,13 +1616,19 @@ $("f-functions-list").addEventListener("click", event => {
   if (rows.length === 1) rows[0].querySelector("select").value = "";
   else button.closest(".repeat-row").remove();
 });
-$("f-phones-list").addEventListener("click", event => {
+$("f-contacts-list").addEventListener("click", event => {
   const button = event.target.closest(".remove-repeat-btn");
   if (!button) return;
-  const rows = $("f-phones-list").querySelectorAll(".repeat-row");
-  if (rows.length === 1) rows[0].querySelector("input").value = "";
-  else button.closest(".repeat-row").remove();
+  const rows = $("f-contacts-list").querySelectorAll(".contact-row");
+  if (rows.length === 1) {
+    rows[0].querySelector(".contact-site-input").value = "";
+    rows[0].querySelector(".contact-phone-input").value = "";
+    rows[0].querySelector(".contact-extension-input").value = "";
+  } else {
+    button.closest(".contact-row").remove();
+  }
 });
+$("f-sites").addEventListener("change", refreshContactSiteOptions);
 $("save-btn").addEventListener("click", () => saveMember(false));
 $("admin-login-btn").addEventListener("click", () => openModal("login-modal", "admin-password"));
 $("login-submit-btn").addEventListener("click", loginAdmin);
