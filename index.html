@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="light">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src https://cdn.jsdelivr.net data:; connect-src https://script.google.com https://script.googleusercontent.com; img-src 'self' data:; base-uri 'self'; form-action 'self';">
   <title>Annuaire du personnel — CHIMR</title>
-  <!-- Version 2.3 : logo CHIMR et état vide des filtres corrigé -->
+  <!-- Version 2.4 : multi-sites, multi-fonctions, multi-téléphones et fusion des doublons -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
@@ -294,6 +294,33 @@
     .field-hint { font-size: 11px; color: var(--gray-400); margin-top: 4px; }
     .field-hint.error { color: var(--red-700); }
     .field-error { border-color: #e5484d !important; }
+
+    .multi-site-grid {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      padding: 8px; border: 1px solid var(--gray-200);
+      border-radius: var(--radius-md); background: var(--gray-50);
+      min-height: 42px;
+    }
+    .check-chip {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 7px 10px; border: 1px solid var(--gray-200);
+      border-radius: 999px; background: #fff; cursor: pointer;
+      font-size: 13px; color: var(--gray-700); user-select: none;
+    }
+    .check-chip:has(input:checked) {
+      color: var(--blue-700); background: var(--blue-50);
+      border-color: var(--blue-300); font-weight: 650;
+    }
+    .check-chip input { width: auto; min-height: auto; margin: 0; accent-color: var(--blue-600); }
+
+    .repeat-list { display: grid; gap: 7px; }
+    .repeat-row { display: grid; grid-template-columns: 1fr auto; gap: 7px; align-items: center; }
+    .repeat-row .btn-icon { flex: 0 0 auto; }
+    .repeat-actions { margin-top: 7px; }
+    .multi-badges { display: flex; gap: 4px; flex-wrap: wrap; }
+    .function-lines { display: grid; gap: 2px; line-height: 1.25; }
+    .function-lines > span + span { color: var(--gray-600); }
+
     .modal-actions { display: flex; gap: 8px; margin-top: 1.25rem; justify-content: flex-end; }
 
     .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--gray-200); margin: -4px 0 16px; }
@@ -396,7 +423,7 @@
       </div>
       <select id="filterSite" aria-label="Filtrer par site"><option value="">Tous les sites</option></select>
       <select id="filterService" aria-label="Filtrer par service"><option value="">Tous les services</option></select>
-      <select id="filterCompleteness" aria-label="Filtrer par complétude">
+      <select id="filterCompleteness" class="admin-only" aria-label="Filtrer par complétude">
         <option value="">Toutes les fiches</option>
         <option value="complete">Fiches complètes</option>
         <option value="incomplete">Fiches incomplètes</option>
@@ -456,7 +483,11 @@
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="member-modal-title">
     <h2 id="member-modal-title">Nouvelle fiche</h2>
     <div class="form-row">
-      <div class="field"><label for="f-site">Site *</label><select id="f-site"></select></div>
+      <div class="field">
+        <label>Site(s) *</label>
+        <div class="multi-site-grid" id="f-sites" role="group" aria-label="Sites"></div>
+        <div class="field-hint" id="f-sites-hint">Une même personne peut être affectée à plusieurs sites.</div>
+      </div>
       <div class="field"><label for="f-titre">Titre</label><select id="f-titre"><option value="Monsieur">Monsieur</option><option value="Madame">Madame</option><option value="Docteur">Docteur</option><option value="">Sans titre</option></select></div>
     </div>
     <div class="form-row">
@@ -465,18 +496,23 @@
     </div>
     <div class="form-row">
       <div class="field"><label for="f-service">Service</label><select id="f-service"><option value="">Sans service</option></select></div>
-      <div class="field"><label for="f-fonction">Fonction</label><select id="f-fonction"><option value="">Sans fonction</option></select></div>
+      <div class="field">
+        <label>Fonction(s)</label>
+        <div class="repeat-list" id="f-functions-list"></div>
+        <div class="repeat-actions"><button class="btn btn-sm" type="button" id="add-function-btn"><i class="ti ti-plus"></i> Ajouter une fonction</button></div>
+      </div>
     </div>
     <div class="form-row">
       <div class="field">
-        <label for="f-tel">Téléphone(s)</label>
-        <input type="text" id="f-tel" placeholder="03 22 73 45 04, 03 22 73 45 15">
-        <div class="field-hint" id="f-tel-hint">Plusieurs numéros possibles, séparés par une virgule.</div>
+        <label>Téléphone(s)</label>
+        <div class="repeat-list" id="f-phones-list"></div>
+        <div class="repeat-actions"><button class="btn btn-sm" type="button" id="add-phone-btn"><i class="ti ti-plus"></i> Ajouter un téléphone</button></div>
+        <div class="field-hint" id="f-tel-hint">Format français : 10 chiffres par numéro.</div>
       </div>
       <div class="field">
         <label for="f-abrege">Numéro(s) abrégé(s)</label>
         <input type="text" id="f-abrege" placeholder="7155, 7030">
-        <div class="field-hint" id="f-abrege-hint">Chaque numéro abrégé doit contenir 4 chiffres.</div>
+        <div class="field-hint" id="f-abrege-hint">Plusieurs abrégés possibles, séparés par une virgule ; 4 chiffres chacun.</div>
       </div>
     </div>
     <div class="field"><label for="f-commentaire">Commentaire</label><textarea id="f-commentaire" placeholder="Disponibilité, bâtiment, étage, remarque…"></textarea></div>
@@ -595,7 +631,8 @@ const $ = id => document.getElementById(id);
 const escHtml = value => String(value ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
 const normalizeText = value => String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
 const cleanList = value => [...new Set(String(value || "").split(/[\n,;]+/).map(v => v.trim()).filter(Boolean))].sort((a,b) => a.localeCompare(b,"fr",{sensitivity:"base"}));
-const splitValues = value => String(value || "").split(/[,;\/]+/).map(v => v.trim()).filter(Boolean);
+const splitValues = value => String(value || "").split(/[,;]+/).map(v => v.trim()).filter(Boolean);
+const splitNumberValues = value => String(value || "").split(/[,;\/]+/).map(v => v.trim()).filter(Boolean);
 const isActive = record => record.actif !== false && String(record.actif).toLowerCase() !== "false" && String(record.actif) !== "0";
 const personLabel = record => `${record.prenom || ""} ${record.nom || ""}`.trim();
 
@@ -662,19 +699,37 @@ function normalizeRecord(record) {
   return {
     id: String(record.uuid || record.id || ""),
     uuid: String(record.uuid || record.id || ""),
-    site: record.site || "",
+    site: normalizeMultiValue(record.site),
     titre: record.titre || "",
     prenom: record.prenom || "",
     nom: record.nom || "",
     service: record.service || "",
-    fonction: record.fonction || "",
-    tel: record.tel || "",
+    fonction: normalizeMultiValue(record.fonction),
+    tel: normalizeMultiValue(record.tel, true),
     abrege: record.abrege ? String(record.abrege) : "",
     commentaire: record.commentaire || "",
     actif: record.actif === undefined ? true : isActive(record),
     updatedAt: record.updatedAt || record.updated_at || "",
     updatedBy: record.updatedBy || record.updated_by || ""
   };
+}
+
+function normalizeMultiValue(value, numeric = false) {
+  return uniqueValues((numeric ? splitNumberValues : splitValues)(value)).join(", ");
+}
+function uniqueValues(values) {
+  const seen = new Set();
+  return (values || []).filter(value => {
+    const key = normalizeText(value);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+function valuesContain(value, needle) {
+  if (!needle) return true;
+  const target = normalizeText(needle);
+  return splitValues(value).some(item => normalizeText(item) === target);
 }
 
 function normalizeSettings(raw) {
@@ -687,9 +742,9 @@ function normalizeSettings(raw) {
 
 function deriveSettings(records) {
   return {
-    sites: cleanList(records.map(r => r.site).join("\n")),
+    sites: cleanList(records.flatMap(r => splitValues(r.site)).join("\n")),
     services: cleanList(records.map(r => r.service).join("\n")),
-    functions: cleanList(records.map(r => r.fonction).join("\n"))
+    functions: cleanList(records.flatMap(r => splitValues(r.fonction)).join("\n"))
   };
 }
 
@@ -734,19 +789,17 @@ function formatDate(value, includeTime = false) {
     : {day:"2-digit", month:"2-digit", year:"numeric"}).format(date);
 }
 function isIncomplete(record) {
-  return !record.site || !record.prenom || !record.nom || (!record.tel && !record.abrege) || !record.service || !record.fonction;
+  return !splitValues(record.site).length || !record.prenom || !record.nom || (!splitValues(record.tel).length && !record.abrege) || !record.service || !splitValues(record.fonction).length;
 }
 
 function populateFilters() {
-  const availableSites = cleanList([...settings.sites, ...staff.map(r => r.site)].join("\n"));
+  const availableSites = cleanList([...settings.sites, ...staff.flatMap(r => splitValues(r.site))].join("\n"));
   const availableServices = cleanList([...settings.services, ...staff.map(r => r.service)].join("\n"));
   fillSelect($("filterSite"), availableSites, "Tous les sites", $("filterSite").value);
   fillSelect($("filterService"), availableServices, "Tous les services", $("filterService").value);
   fillSelect($("print-site"), availableSites, "Tous les sites", $("print-site").value);
   fillSelect($("print-service"), availableServices, "Tous les services", $("print-service").value);
-  fillSelect($("f-site"), settings.sites, null, $("f-site").value || settings.sites[0]);
   fillSelect($("f-service"), settings.services, "Sans service", $("f-service").value);
-  fillSelect($("f-fonction"), settings.functions, "Sans fonction", $("f-fonction").value);
 }
 function fillSelect(select, values, emptyLabel, current) {
   const items = [];
@@ -760,14 +813,15 @@ function applyFilters() {
   const queryTokens = normalizeText($("search").value).split(" ").filter(Boolean);
   const site = $("filterSite").value;
   const service = $("filterService").value;
-  const completeness = $("filterCompleteness").value;
-  const status = document.body.classList.contains("is-admin") ? $("filterStatus").value : "active";
+  const isAdmin = document.body.classList.contains("is-admin");
+  const completeness = isAdmin ? $("filterCompleteness").value : "";
+  const status = isAdmin ? $("filterStatus").value : "active";
   const sortBy = $("sortBy").value;
 
   filtered = staff.filter(record => {
     const haystack = normalizeText([record.nom,record.prenom,record.fonction,record.service,record.site,record.tel,record.abrege,record.commentaire,record.titre].join(" "));
     const matchesQuery = queryTokens.every(token => haystack.includes(token));
-    const matchesSite = !site || record.site === site;
+    const matchesSite = !site || valuesContain(record.site, site);
     const matchesService = !service || record.service === service;
     const matchesCompleteness = !completeness || (completeness === "complete" ? !isIncomplete(record) : isIncomplete(record));
     const matchesStatus = status === "all" || (status === "active" ? record.actif : !record.actif);
@@ -787,14 +841,26 @@ function applyFilters() {
 }
 
 function renderStats() {
-  const visibleBase = document.body.classList.contains("is-admin") ? staff : staff.filter(r => r.actif);
+  const isAdmin = document.body.classList.contains("is-admin");
+  const visibleBase = isAdmin ? staff : staff.filter(r => r.actif);
   const activeCount = staff.filter(r => r.actif).length;
   const servicesCount = new Set(visibleBase.map(r => r.service).filter(Boolean)).size;
-  const incompleteCount = visibleBase.filter(isIncomplete).length;
+  const sitesCount = new Set(visibleBase.flatMap(r => splitValues(r.site))).size;
+
+  if (isAdmin) {
+    const incompleteCount = visibleBase.filter(isIncomplete).length;
+    $("stats").innerHTML = `
+      <div class="stat"><div class="stat-label">Fiches actives</div><div class="stat-value">${activeCount}</div></div>
+      <div class="stat"><div class="stat-label">Services</div><div class="stat-value">${servicesCount}</div></div>
+      <div class="stat"><div class="stat-label">Fiches incomplètes</div><div class="stat-value">${incompleteCount}</div></div>
+      <div class="stat"><div class="stat-label">Résultats affichés</div><div class="stat-value">${filtered.length}</div></div>`;
+    return;
+  }
+
   $("stats").innerHTML = `
-    <div class="stat"><div class="stat-label">Fiches actives</div><div class="stat-value">${activeCount}</div></div>
+    <div class="stat"><div class="stat-label">Contacts</div><div class="stat-value">${activeCount}</div></div>
+    <div class="stat"><div class="stat-label">Sites</div><div class="stat-value">${sitesCount}</div></div>
     <div class="stat"><div class="stat-label">Services</div><div class="stat-value">${servicesCount}</div></div>
-    <div class="stat"><div class="stat-label">Fiches incomplètes</div><div class="stat-value">${incompleteCount}</div></div>
     <div class="stat"><div class="stat-label">Résultats affichés</div><div class="stat-value">${filtered.length}</div></div>`;
 }
 
@@ -807,14 +873,14 @@ function renderTable() {
       $("search").value.trim() ||
       $("filterSite").value ||
       $("filterService").value ||
-      $("filterCompleteness").value ||
+      (document.body.classList.contains("is-admin") && $("filterCompleteness").value) ||
       (document.body.classList.contains("is-admin") && $("filterStatus").value !== "active")
     );
     const message = staff.length
       ? (hasActiveFilters
           ? "Aucun résultat ne correspond aux filtres sélectionnés."
-          : "Aucune fiche n’est disponible.")
-      : "Aucune fiche n’est disponible.";
+          : "Aucun contact n’est disponible.")
+      : "Aucun contact n’est disponible.";
     const icon = hasActiveFilters ? "ti-filter-off" : "ti-users-off";
     $("empty-state").hidden = false;
     $("empty-state").innerHTML = `<i class="ti ${icon}"></i><span>${message}</span>`;
@@ -826,8 +892,8 @@ function renderTable() {
 
 function renderRow(record) {
   const color = avatarColor(record.nom + record.prenom);
-  const phones = splitValues(record.tel);
-  const extensions = splitValues(record.abrege);
+  const phones = splitNumberValues(record.tel);
+  const extensions = splitNumberValues(record.abrege);
   const title = [record.titre, record.prenom, record.nom].filter(Boolean).join(" ");
   const incomplete = isIncomplete(record);
 
@@ -838,15 +904,16 @@ function renderRow(record) {
         <div>
           <div class="person-name">${escHtml(title)}</div>
           <div class="person-sub">
-            ${record.actif ? "" : '<span class="badge badge-inactive">Désactivée</span> '}
-            ${incomplete ? '<span class="badge badge-warning">À compléter</span>' : escHtml(record.commentaire || "")}
+            ${record.actif ? "" : '<span class="badge badge-inactive admin-only">Désactivée</span> '}
+            ${incomplete ? '<span class="badge badge-warning admin-only">À compléter</span> ' : ''}
+            ${record.commentaire ? escHtml(record.commentaire) : ''}
           </div>
         </div>
       </div>
     </td>
-    <td><div class="ellipsis" title="${escHtml(record.fonction)}">${record.fonction ? escHtml(record.fonction) : '<span class="muted">—</span>'}</div></td>
+    <td>${renderFunctionList(splitValues(record.fonction))}</td>
     <td class="service-cell">${record.service ? escHtml(record.service) : '<span class="muted">—</span>'}</td>
-    <td>${record.site ? `<span class="badge badge-site"><i class="ti ti-map-pin"></i>${escHtml(record.site)}</span>` : '<span class="muted">—</span>'}</td>
+    <td>${renderSiteList(splitValues(record.site))}</td>
     <td>${renderPhoneList(phones)}</td>
     <td>${renderExtensionList(extensions)}</td>
     <td class="hide-mobile nowrap">${record.updatedAt ? `<span title="${escHtml(record.updatedBy || "")}">${escHtml(formatDate(record.updatedAt))}</span>` : '<span class="muted">—</span>'}</td>
@@ -860,6 +927,15 @@ function renderRow(record) {
       </div>
     </td>
   </tr>`;
+}
+
+function renderFunctionList(values) {
+  if (!values.length) return '<span class="muted">—</span>';
+  return `<div class="function-lines">${values.map(value => `<span>${escHtml(value)}</span>`).join("")}</div>`;
+}
+function renderSiteList(values) {
+  if (!values.length) return '<span class="muted">—</span>';
+  return `<div class="multi-badges">${values.map(value => `<span class="badge badge-site"><i class="ti ti-map-pin"></i>${escHtml(value)}</span>`).join("")}</div>`;
 }
 
 function renderPhoneList(values) {
@@ -910,41 +986,118 @@ function openEdit(id) {
   fillMemberForm(record);
   openModal("member-modal", "f-prenom");
 }
+function renderSiteChoices(selectedSites = []) {
+  const allSites = cleanList([...settings.sites, ...selectedSites].join("\n"));
+  const selected = new Set(selectedSites.map(normalizeText));
+  $("f-sites").innerHTML = allSites.map(site => `
+    <label class="check-chip">
+      <input type="checkbox" value="${escHtml(site)}"${selected.has(normalizeText(site)) ? " checked" : ""}>
+      <span>${escHtml(site)}</span>
+    </label>`).join("");
+}
+function selectedSites() {
+  return [...$("f-sites").querySelectorAll('input[type="checkbox"]:checked')].map(input => input.value);
+}
+
+function functionOptions(selected = "") {
+  const values = cleanList([...settings.functions, selected].join("\n"));
+  return `<option value="">Sans fonction</option>` + values.map(value =>
+    `<option value="${escHtml(value)}"${normalizeText(value) === normalizeText(selected) ? " selected" : ""}>${escHtml(value)}</option>`
+  ).join("");
+}
+function addFunctionRow(value = "") {
+  const row = document.createElement("div");
+  row.className = "repeat-row";
+  row.innerHTML = `<select class="function-input" aria-label="Fonction">${functionOptions(value)}</select>
+    <button class="btn btn-sm btn-icon remove-repeat-btn" type="button" title="Retirer cette fonction" aria-label="Retirer cette fonction"><i class="ti ti-x"></i></button>`;
+  $("f-functions-list").appendChild(row);
+}
+function renderFunctionRows(values) {
+  $("f-functions-list").innerHTML = "";
+  const list = uniqueValues(values);
+  (list.length ? list : [""]).forEach(addFunctionRow);
+}
+function selectedFunctions() {
+  return uniqueValues([...$("f-functions-list").querySelectorAll(".function-input")].map(select => select.value.trim()).filter(Boolean));
+}
+
+function addPhoneRow(value = "") {
+  const row = document.createElement("div");
+  row.className = "repeat-row";
+  row.innerHTML = `<input class="phone-input" type="text" inputmode="tel" placeholder="03 22 73 45 04" value="${escHtml(value)}" aria-label="Téléphone">
+    <button class="btn btn-sm btn-icon remove-repeat-btn" type="button" title="Retirer ce téléphone" aria-label="Retirer ce téléphone"><i class="ti ti-x"></i></button>`;
+  $("f-phones-list").appendChild(row);
+}
+function renderPhoneRows(values) {
+  $("f-phones-list").innerHTML = "";
+  const list = uniqueValues(values);
+  (list.length ? list : [""]).forEach(addPhoneRow);
+}
+function selectedPhones() {
+  return uniqueValues([...$("f-phones-list").querySelectorAll(".phone-input")].map(input => input.value.trim()).filter(Boolean));
+}
+
 function fillMemberForm(record) {
-  fillSelect($("f-site"), cleanList([...settings.sites, record.site].join("\n")), null, record.site || settings.sites[0]);
+  renderSiteChoices(splitValues(record.site || settings.sites[0] || "Montdidier"));
   fillSelect($("f-service"), cleanList([...settings.services, record.service].join("\n")), "Sans service", record.service || "");
-  fillSelect($("f-fonction"), cleanList([...settings.functions, record.fonction].join("\n")), "Sans fonction", record.fonction || "");
+  renderFunctionRows(splitValues(record.fonction));
+  renderPhoneRows(splitNumberValues(record.tel));
   $("f-titre").value = record.titre || "";
   $("f-prenom").value = record.prenom || "";
   $("f-nom").value = record.nom || "";
-  $("f-tel").value = record.tel || "";
   $("f-abrege").value = record.abrege || "";
   $("f-commentaire").value = record.commentaire || "";
   clearFieldErrors();
 }
 function clearFieldErrors() {
   document.querySelectorAll(".field-error").forEach(el => el.classList.remove("field-error"));
+  $("f-sites").classList.remove("field-error");
+  $("f-sites-hint").classList.remove("error");
   $("f-tel-hint").classList.remove("error");
   $("f-abrege-hint").classList.remove("error");
+  $("f-sites-hint").textContent = "Une même personne peut être affectée à plusieurs sites.";
+  $("f-tel-hint").textContent = "Format français : 10 chiffres par numéro.";
+  $("f-abrege-hint").textContent = "Plusieurs abrégés possibles, séparés par une virgule ; 4 chiffres chacun.";
 }
 function validateMemberForm() {
   clearFieldErrors();
+  const sites = selectedSites();
+  const functions = selectedFunctions();
+  const phones = selectedPhones();
   const entry = {
-    site: $("f-site").value.trim(), titre: $("f-titre").value,
+    site: sites.join(", "), titre: $("f-titre").value,
     prenom: $("f-prenom").value.trim(), nom: $("f-nom").value.trim(),
-    service: $("f-service").value.trim(), fonction: $("f-fonction").value.trim(),
-    tel: splitValues($("f-tel").value).join(", "),
-    abrege: splitValues($("f-abrege").value).join(", "),
+    service: $("f-service").value.trim(), fonction: functions.join(", "),
+    tel: phones.join(", "),
+    abrege: uniqueValues(splitNumberValues($("f-abrege").value)).join(", "),
     commentaire: $("f-commentaire").value.trim()
   };
   let valid = true;
-  ["site","prenom","nom"].forEach(key => {
+  if (!sites.length) {
+    $("f-sites").classList.add("field-error");
+    $("f-sites-hint").classList.add("error");
+    $("f-sites-hint").textContent = "Sélectionnez au moins un site.";
+    valid = false;
+  }
+  ["prenom","nom"].forEach(key => {
     if (!entry[key]) { $(`f-${key}`).classList.add("field-error"); valid = false; }
   });
-  const badPhones = splitValues(entry.tel).filter(v => v.replace(/\D/g, "").length !== 10);
-  const badExtensions = splitValues(entry.abrege).filter(v => !/^\d{4}$/.test(v));
-  if (badPhones.length) { $("f-tel").classList.add("field-error"); $("f-tel-hint").classList.add("error"); $("f-tel-hint").textContent = `Numéro(s) invalide(s) : ${badPhones.join(", ")}`; valid = false; }
-  if (badExtensions.length) { $("f-abrege").classList.add("field-error"); $("f-abrege-hint").classList.add("error"); $("f-abrege-hint").textContent = `Abrégé(s) invalide(s) : ${badExtensions.join(", ")}`; valid = false; }
+  const badPhones = phones.filter(v => v.replace(/\D/g, "").length !== 10);
+  const badExtensions = splitNumberValues(entry.abrege).filter(v => !/^\d{4}$/.test(v));
+  if (badPhones.length) {
+    [...$("f-phones-list").querySelectorAll(".phone-input")].forEach(input => {
+      if (input.value.trim() && input.value.replace(/\D/g, "").length !== 10) input.classList.add("field-error");
+    });
+    $("f-tel-hint").classList.add("error");
+    $("f-tel-hint").textContent = `Numéro(s) invalide(s) : ${badPhones.join(", ")}`;
+    valid = false;
+  }
+  if (badExtensions.length) {
+    $("f-abrege").classList.add("field-error");
+    $("f-abrege-hint").classList.add("error");
+    $("f-abrege-hint").textContent = `Abrégé(s) invalide(s) : ${badExtensions.join(", ")}`;
+    valid = false;
+  }
   return valid ? entry : null;
 }
 
@@ -961,8 +1114,34 @@ async function saveMember(force = false) {
     await refreshAdminData();
   } catch (error) {
     if (error.code === "DUPLICATE" && !force) {
-      const names = (error.details.duplicates || []).map(item => personLabel(item)).join(", ");
-      if (confirm(`Une ou plusieurs fiches proches existent déjà : ${names || "fiche similaire"}. Enregistrer malgré tout ?`)) return await saveMember(true);
+      const duplicates = error.details.duplicates || [];
+      const exact = duplicates.find(item =>
+        normalizeText(item.prenom) === normalizeText(entry.prenom) &&
+        normalizeText(item.nom) === normalizeText(entry.nom)
+      );
+      if (!editId && exact) {
+        const merge = confirm(
+          `${personLabel(exact)} existe déjà dans l’annuaire.\n\n` +
+          `Voulez-vous fusionner les nouveaux sites, fonctions, téléphones et numéros abrégés avec cette fiche ?`
+        );
+        if (merge) {
+          try {
+            await apiPost({action:"merge", token:adminToken, targetUuid:exact.uuid || exact.id, entry});
+            closeModal("member-modal");
+            toast("Les informations ont été fusionnées avec la fiche existante.");
+            await refreshAdminData();
+            return;
+          } catch (mergeError) {
+            toast(`Fusion impossible : ${mergeError.message}`, "error");
+            return;
+          }
+        }
+        const createAnyway = confirm("Créer malgré tout une deuxième fiche portant le même nom ?");
+        if (createAnyway) return await saveMember(true);
+        return;
+      }
+      const names = duplicates.map(item => personLabel(item)).join(", ");
+      if (confirm(`Une fiche proche existe déjà : ${names || "fiche similaire"}. Enregistrer malgré tout ?`)) return await saveMember(true);
     }
     if (error.code === "UNAUTHORIZED") exitAdmin("Votre session administrateur a expiré.");
     else toast(`Enregistrement impossible : ${error.message}`, "error");
@@ -1110,7 +1289,7 @@ function openPrint() { openModal("print-modal", "print-site"); }
 function generatePrintView() {
   const site = $("print-site").value;
   const serviceFilter = $("print-service").value;
-  const list = staff.filter(r => r.actif && (!site || r.site === site) && (!serviceFilter || r.service === serviceFilter));
+  const list = staff.filter(r => r.actif && (!site || valuesContain(r.site, site)) && (!serviceFilter || r.service === serviceFilter));
   const grouped = {};
   list.forEach(record => { const key = record.service || "Sans service"; (grouped[key] ||= []).push(record); });
   const collator = new Intl.Collator("fr", {sensitivity:"base"});
@@ -1181,7 +1360,7 @@ async function runImport() {
   setButtonLoading(btn, true, "Import…");
   try {
     const data = await apiPost({action:"import", token:adminToken, entries:importRows});
-    toast(`Import terminé : ${data.added || 0} ajout(s), ${data.updated || 0} mise(s) à jour, ${(data.errors || []).length} erreur(s).`);
+    toast(`Import terminé : ${data.added || 0} ajout(s), ${data.updated || 0} mise(s) à jour, ${data.merged || 0} fusion(s), ${(data.errors || []).length} erreur(s).`);
     importRows = []; $("import-preview").innerHTML = ""; btn.disabled = true;
     await refreshAdminData();
   } catch (error) { toast(`Import impossible : ${error.message}`, "error"); }
@@ -1206,6 +1385,22 @@ $("print-btn").addEventListener("click", openPrint);
 $("export-btn").addEventListener("click", exportExcel);
 $("generate-print-btn").addEventListener("click", generatePrintView);
 $("add-btn").addEventListener("click", openAdd);
+$("add-function-btn").addEventListener("click", () => addFunctionRow(""));
+$("add-phone-btn").addEventListener("click", () => addPhoneRow(""));
+$("f-functions-list").addEventListener("click", event => {
+  const button = event.target.closest(".remove-repeat-btn");
+  if (!button) return;
+  const rows = $("f-functions-list").querySelectorAll(".repeat-row");
+  if (rows.length === 1) rows[0].querySelector("select").value = "";
+  else button.closest(".repeat-row").remove();
+});
+$("f-phones-list").addEventListener("click", event => {
+  const button = event.target.closest(".remove-repeat-btn");
+  if (!button) return;
+  const rows = $("f-phones-list").querySelectorAll(".repeat-row");
+  if (rows.length === 1) rows[0].querySelector("input").value = "";
+  else button.closest(".repeat-row").remove();
+});
 $("save-btn").addEventListener("click", () => saveMember(false));
 $("admin-login-btn").addEventListener("click", () => openModal("login-modal", "admin-password"));
 $("login-submit-btn").addEventListener("click", loginAdmin);
