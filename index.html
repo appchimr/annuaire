@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="light">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src https://cdn.jsdelivr.net data:; connect-src https://script.google.com https://script.googleusercontent.com; img-src 'self' data:; base-uri 'self'; form-action 'self';">
   <title>Annuaire du personnel — CHIMR</title>
-  <!-- Version 2.7.1 : colonne Site en première position -->
+  <!-- Version 2.7.2 : numéros non cliquables et sans copie -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
@@ -1080,16 +1080,15 @@ function contactSiteMini(site) {
 function renderPhoneContacts(contacts) {
   const values = (contacts || []).filter(contact => contact.tel);
   if (!values.length) return '<span class="muted">—</span>';
-  return `<div class="contact-display">${values.map(contact => {
-    const digits = contact.tel.replace(/\D/g, "");
-    return `<div class="contact-display-line">${contactSiteMini(contact.site)}<a class="number-link" href="tel:${escHtml(digits)}"><i class="ti ti-phone"></i>${escHtml(contact.tel)}</a><button class="copy-btn" type="button" data-copy="${escHtml(contact.tel)}" title="Copier"><i class="ti ti-copy"></i></button></div>`;
-  }).join("")}</div>`;
+  return `<div class="contact-display">${values.map(contact =>
+    `<div class="contact-display-line">${contactSiteMini(contact.site)}<span>${escHtml(contact.tel)}</span></div>`
+  ).join("")}</div>`;
 }
 function renderExtensionContacts(contacts) {
   const values = (contacts || []).filter(contact => contact.abrege);
   if (!values.length) return '<span class="muted">—</span>';
   return `<div class="contact-display">${values.map(contact =>
-    `<div class="contact-display-line">${contactSiteMini(contact.site)}<span class="badge">${escHtml(contact.abrege)}</span><button class="copy-btn" type="button" data-copy="${escHtml(contact.abrege)}" title="Copier"><i class="ti ti-copy"></i></button></div>`
+    `<div class="contact-display-line">${contactSiteMini(contact.site)}<span class="badge">${escHtml(contact.abrege)}</span></div>`
   ).join("")}</div>`;
 }
 function renderEmpty(message, icon = "ti-search") {
