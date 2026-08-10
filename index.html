@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="light">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src https://cdn.jsdelivr.net data:; connect-src https://script.google.com https://script.googleusercontent.com; img-src 'self' data:; base-uri 'self'; form-action 'self';">
   <title>Annuaire du personnel — CHIMR</title>
-  <!-- Version 2.6 : coordonnées téléphoniques associées aux sites -->
+  <!-- Version 2.7 : site déduit automatiquement des coordonnées -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
@@ -512,13 +512,9 @@
 <div class="modal-bg" id="member-modal" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="member-modal-title">
     <h2 id="member-modal-title">Nouvelle fiche</h2>
-    <div class="form-row">
-      <div class="field">
-        <label>Site(s) *</label>
-        <div class="multi-site-grid" id="f-sites" role="group" aria-label="Sites"></div>
-        <div class="field-hint" id="f-sites-hint">Une même personne peut être affectée à plusieurs sites.</div>
-      </div>
-      <div class="field"><label for="f-titre">Titre</label><select id="f-titre"><option value="Monsieur">Monsieur</option><option value="Madame">Madame</option><option value="Docteur">Docteur</option><option value="">Sans titre</option></select></div>
+    <div class="field">
+      <label for="f-titre">Titre</label>
+      <select id="f-titre"><option value="Monsieur">Monsieur</option><option value="Madame">Madame</option><option value="Docteur">Docteur</option><option value="">Sans titre</option></select>
     </div>
     <div class="form-row">
       <div class="field"><label for="f-prenom">Prénom *</label><input type="text" id="f-prenom" autocomplete="given-name"></div>
@@ -538,12 +534,12 @@
       <div class="field-hint">Facultatif. Les boutons ↑ et ↓ dans le tableau permettent aussi de modifier l’ordre.</div>
     </div>
     <div class="field">
-      <label>Coordonnées téléphoniques</label>
+      <label>Site et coordonnées téléphoniques *</label>
       <div class="repeat-list" id="f-contacts-list"></div>
       <div class="repeat-actions">
-        <button class="btn btn-sm" type="button" id="add-contact-btn"><i class="ti ti-plus"></i> Ajouter un téléphone / abrégé</button>
+        <button class="btn btn-sm" type="button" id="add-contact-btn"><i class="ti ti-plus"></i> Ajouter un site / téléphone / abrégé</button>
       </div>
-      <div class="field-hint" id="f-contacts-hint">Chaque ligne peut être associée à Montdidier, Roye, ou être commune aux sites.</div>
+      <div class="field-hint" id="f-contacts-hint">Le ou les sites de la personne sont déterminés automatiquement à partir de ces lignes.</div>
     </div>
     <div class="field"><label for="f-commentaire">Commentaire</label><textarea id="f-commentaire" placeholder="Disponibilité, bâtiment, étage, remarque…"></textarea></div>
     <div class="modal-actions">
@@ -730,16 +726,33 @@ function legacyContactsFromFlat(siteValue, telValue, abregeValue) {
   const phones = uniqueValues(splitNumberValues(telValue));
   const extensions = uniqueValues(splitNumberValues(abregeValue));
   const count = Math.max(phones.length, extensions.length);
-  if (!count) return [];
+
+  if (!count) {
+    return sites.map(site => ({site, tel:"", abrege:""}));
+  }
+
   const canMap = sites.length === 1 ||
     (sites.length === count &&
       (!phones.length || phones.length === count) &&
       (!extensions.length || extensions.length === count));
-  return Array.from({length: count}, (_, index) => ({
-    site: sites.length === 1 ? sites[0] : (canMap ? (sites[index] || "") : ""),
-    tel: phones[index] || "",
-    abrege: extensions[index] || ""
-  }));
+
+  if (canMap) {
+    return Array.from({length: count}, (_, index) => ({
+      site: sites.length === 1 ? sites[0] : (sites[index] || ""),
+      tel: phones[index] || "",
+      abrege: extensions[index] || ""
+    }));
+  }
+
+  // Ancienne donnée ambiguë : on conserve les sites, mais le numéro reste à rattacher.
+  return [
+    ...sites.map(site => ({site, tel:"", abrege:""})),
+    ...Array.from({length: count}, (_, index) => ({
+      site: "",
+      tel: phones[index] || "",
+      abrege: extensions[index] || ""
+    }))
+  ];
 }
 
 function normalizeContacts(raw, siteValue = "", telValue = "", abregeValue = "") {
@@ -759,7 +772,7 @@ function normalizeContacts(raw, siteValue = "", telValue = "", abregeValue = "")
     tel: String(contact?.tel || "").trim(),
     abrege: String(contact?.abrege || "").trim()
   })).filter(contact => {
-    if (!contact.tel && !contact.abrege) return false;
+    if (!contact.site && !contact.tel && !contact.abrege) return false;
     const key = `${normalizeText(contact.site)}|${contact.tel.replace(/\D/g,"")}|${contact.abrege}`;
     if (seen.has(key)) return false;
     seen.add(key);
@@ -772,8 +785,10 @@ function flattenContactField(contacts, field) {
 }
 
 function normalizeRecord(record) {
-  const site = normalizeMultiValue(record.site);
-  const contacts = normalizeContacts(record.contacts, site, record.tel, record.abrege);
+  const legacySite = normalizeMultiValue(record.site);
+  const contacts = normalizeContacts(record.contacts, legacySite, record.tel, record.abrege);
+  const derivedSites = uniqueValues(contacts.map(contact => contact.site).filter(Boolean));
+  const site = derivedSites.length ? derivedSites.join(", ") : legacySite;
   return {
     id: String(record.uuid || record.id || ""),
     uuid: String(record.uuid || record.id || ""),
@@ -1058,7 +1073,7 @@ function renderSiteList(values) {
 }
 
 function contactSiteMini(site) {
-  if (!site) return '<span class="contact-site-mini contact-site-common">Commun</span>';
+  if (!site) return '<span class="contact-site-mini contact-site-common">Site à préciser</span>';
   const cls = normalizeText(site) === "roye" ? "badge-site-roye" : "badge-site-montdidier";
   return `<span class="contact-site-mini ${cls}">${escHtml(site)}</span>`;
 }
@@ -1103,7 +1118,7 @@ function closeModal(id) {
 function openAdd() {
   editId = null;
   $("member-modal-title").textContent = "Nouvelle fiche";
-  fillMemberForm({site: settings.sites[0] || "Montdidier", titre:"Monsieur"});
+  fillMemberForm({titre:"Monsieur"});
   openModal("member-modal", "f-prenom");
 }
 function openEdit(id) {
@@ -1113,18 +1128,6 @@ function openEdit(id) {
   $("member-modal-title").textContent = "Modifier la fiche";
   fillMemberForm(record);
   openModal("member-modal", "f-prenom");
-}
-function renderSiteChoices(selectedSites = []) {
-  const allSites = cleanList([...settings.sites, ...selectedSites].join("\n"));
-  const selected = new Set(selectedSites.map(normalizeText));
-  $("f-sites").innerHTML = allSites.map(site => `
-    <label class="check-chip">
-      <input type="checkbox" value="${escHtml(site)}"${selected.has(normalizeText(site)) ? " checked" : ""}>
-      <span>${escHtml(site)}</span>
-    </label>`).join("");
-}
-function selectedSites() {
-  return [...$("f-sites").querySelectorAll('input[type="checkbox"]:checked')].map(input => input.value);
 }
 
 function functionOptions(selected = "") {
@@ -1150,15 +1153,15 @@ function selectedFunctions() {
 }
 
 function contactSiteOptions(selected = "") {
-  const allowed = uniqueValues([...selectedSites(), selected].filter(Boolean));
-  return `<option value="">Commun aux sites</option>` + allowed.map(site =>
+  const allowed = cleanList([...settings.sites, selected].filter(Boolean).join("\n"));
+  return `<option value="">Sélectionner le site</option>` + allowed.map(site =>
     `<option value="${escHtml(site)}"${normalizeText(site) === normalizeText(selected) ? " selected" : ""}>${escHtml(site)}</option>`
   ).join("");
 }
 function addContactRow(contact = {}) {
   const row = document.createElement("div");
   row.className = "contact-row";
-  const preferredSite = contact.site || (selectedSites().length === 1 ? selectedSites()[0] : "");
+  const preferredSite = contact.site || "";
   row.innerHTML = `<select class="contact-site-input" aria-label="Site de cette coordonnée">${contactSiteOptions(preferredSite)}</select>
     <input class="contact-phone-input" type="text" inputmode="tel" placeholder="03 22 78 70 22" value="${escHtml(contact.tel || "")}" aria-label="Téléphone">
     <input class="contact-extension-input" type="text" inputmode="numeric" maxlength="4" placeholder="7022" value="${escHtml(contact.abrege || "")}" aria-label="Numéro abrégé">
@@ -1178,21 +1181,12 @@ function selectedContacts() {
       tel: row.querySelector(".contact-phone-input").value.trim(),
       abrege: row.querySelector(".contact-extension-input").value.trim()
     };
-    if (contact.tel || contact.abrege) result.push(contact);
+    if (contact.site || contact.tel || contact.abrege) result.push(contact);
   });
   return normalizeContacts(result);
 }
-function refreshContactSiteOptions() {
-  $("f-contacts-list").querySelectorAll(".contact-row").forEach(row => {
-    const select = row.querySelector(".contact-site-input");
-    const current = select.value;
-    select.innerHTML = contactSiteOptions(current);
-    if ([...select.options].some(option => option.value === current)) select.value = current;
-  });
-}
 
 function fillMemberForm(record) {
-  renderSiteChoices(splitValues(record.site || settings.sites[0] || "Montdidier"));
   fillSelect($("f-service"), cleanList([...settings.services, record.service].join("\n")), "Sans service", record.service || "");
   renderFunctionRows(splitValues(record.fonction));
   renderContactRows(normalizeContacts(record.contacts, record.site, record.tel, record.abrege));
@@ -1205,17 +1199,15 @@ function fillMemberForm(record) {
 }
 function clearFieldErrors() {
   document.querySelectorAll(".field-error").forEach(el => el.classList.remove("field-error"));
-  $("f-sites").classList.remove("field-error");
-  $("f-sites-hint").classList.remove("error");
   $("f-contacts-hint").classList.remove("error");
-  $("f-sites-hint").textContent = "Une même personne peut être affectée à plusieurs sites.";
-  $("f-contacts-hint").textContent = "Chaque ligne peut être associée à Montdidier, Roye, ou être commune aux sites.";
+  $("f-contacts-hint").textContent = "Le ou les sites de la personne sont déterminés automatiquement à partir de ces lignes.";
 }
 function validateMemberForm() {
   clearFieldErrors();
-  const sites = selectedSites();
   const functions = selectedFunctions();
   const contacts = selectedContacts();
+  const sites = uniqueValues(contacts.map(contact => contact.site).filter(Boolean));
+
   const entry = {
     site: sites.join(", "), titre: $("f-titre").value,
     prenom: $("f-prenom").value.trim(), nom: $("f-nom").value.trim(),
@@ -1228,17 +1220,10 @@ function validateMemberForm() {
   };
 
   let valid = true;
-  if (!sites.length) {
-    $("f-sites").classList.add("field-error");
-    $("f-sites-hint").classList.add("error");
-    $("f-sites-hint").textContent = "Sélectionnez au moins un site.";
-    valid = false;
-  }
   ["prenom","nom"].forEach(key => {
     if (!entry[key]) { $(`f-${key}`).classList.add("field-error"); valid = false; }
   });
 
-  const selectedSiteKeys = new Set(sites.map(normalizeText));
   const errors = [];
   $("f-contacts-list").querySelectorAll(".contact-row").forEach(row => {
     const siteInput = row.querySelector(".contact-site-input");
@@ -1252,10 +1237,9 @@ function validateMemberForm() {
     extInput.classList.remove("field-error");
     siteInput.classList.remove("field-error");
 
-    if (!tel && !ext) return;
-    if (site && !selectedSiteKeys.has(normalizeText(site))) {
+    if (!site && (tel || ext)) {
       siteInput.classList.add("field-error");
-      errors.push(`site ${site} non sélectionné`);
+      errors.push("site manquant pour une coordonnée");
       valid = false;
     }
     if (tel && tel.replace(/\D/g, "").length !== 10) {
@@ -1270,6 +1254,13 @@ function validateMemberForm() {
     }
   });
 
+  if (!sites.length) {
+    const firstSite = $("f-contacts-list").querySelector(".contact-site-input");
+    if (firstSite) firstSite.classList.add("field-error");
+    errors.push("sélectionnez au moins un site dans les coordonnées");
+    valid = false;
+  }
+
   const badOrder = entry.ordre && (!/^\d+$/.test(entry.ordre) || Number(entry.ordre) < 1);
   if (badOrder) {
     $("f-ordre").classList.add("field-error");
@@ -1278,7 +1269,7 @@ function validateMemberForm() {
 
   if (errors.length) {
     $("f-contacts-hint").classList.add("error");
-    $("f-contacts-hint").textContent = "Vérifiez les coordonnées signalées : " + errors.join(", ") + ".";
+    $("f-contacts-hint").textContent = "Vérifiez : " + [...new Set(errors)].join(", ") + ".";
   }
   return valid ? entry : null;
 }
@@ -1484,12 +1475,12 @@ function clearFilters() {
 function contactTextForPrint(record, field) {
   const contacts = normalizeContacts(record.contacts, record.site, record.tel, record.abrege).filter(contact => contact[field]);
   if (!contacts.length) return "—";
-  return contacts.map(contact => `${contact.site || "Commun"} — ${contact[field]}`).join("\n");
+  return contacts.map(contact => `${contact.site || "Site à préciser"} — ${contact[field]}`).join("\n");
 }
 function contactsSummary(record) {
   const contacts = normalizeContacts(record.contacts, record.site, record.tel, record.abrege);
   return contacts.map(contact => {
-    const parts = [contact.site || "Commun aux sites"];
+    const parts = [contact.site || "Site à préciser"];
     if (contact.tel) parts.push(contact.tel);
     if (contact.abrege) parts.push(`abrégé ${contact.abrege}`);
     return parts.join(" — ");
@@ -1628,7 +1619,6 @@ $("f-contacts-list").addEventListener("click", event => {
     button.closest(".contact-row").remove();
   }
 });
-$("f-sites").addEventListener("change", refreshContactSiteOptions);
 $("save-btn").addEventListener("click", () => saveMember(false));
 $("admin-login-btn").addEventListener("click", () => openModal("login-modal", "admin-password"));
 $("login-submit-btn").addEventListener("click", loginAdmin);
