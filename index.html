@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="light">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src https://cdn.jsdelivr.net data:; connect-src https://script.google.com https://script.googleusercontent.com; img-src 'self' data:; base-uri 'self'; form-action 'self';">
   <title>Annuaire du personnel — CHIMR</title>
-  <!-- Version 2.7.2 : numéros non cliquables et sans copie -->
+  <!-- Version 2.8 : multi-services + gestion manuelle des doublons -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
@@ -364,6 +364,22 @@
     .history-action { font-weight: 700; }
     .history-meta { color: var(--gray-400); margin-top: 3px; }
 
+    .duplicate-summary { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+    .duplicate-list { display:grid; gap:10px; max-height:480px; overflow:auto; padding-right:2px; }
+    .duplicate-card { border:1px solid var(--gray-200); border-radius:var(--radius-lg); background:#fff; overflow:hidden; }
+    .duplicate-card-head { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; background:var(--gray-50); border-bottom:1px solid var(--gray-200); }
+    .duplicate-card-name { font-weight:700; }
+    .duplicate-records { display:grid; gap:0; }
+    .duplicate-record { display:grid; grid-template-columns:auto 1fr; gap:10px; padding:10px 12px; border-bottom:1px solid var(--gray-200); cursor:pointer; }
+    .duplicate-record:last-child { border-bottom:0; }
+    .duplicate-record:hover { background:var(--blue-50); }
+    .duplicate-record input { margin-top:3px; }
+    .duplicate-record-main { display:grid; gap:4px; min-width:0; }
+    .duplicate-record-meta { display:flex; gap:5px; flex-wrap:wrap; font-size:12px; color:var(--gray-600); }
+    .duplicate-card-actions { display:flex; gap:8px; justify-content:flex-end; padding:10px 12px; background:var(--gray-50); border-top:1px solid var(--gray-200); }
+    .badge-probable { background:var(--green-50); color:var(--green-700); border-color:var(--green-200); }
+    .badge-review { background:var(--amber-50); color:var(--amber-700); border-color:#f1d394; }
+
     .drop-zone {
       border: 2px dashed var(--gray-300); border-radius: var(--radius-lg);
       padding: 2rem; text-align: center; color: var(--gray-600); background: var(--gray-50);
@@ -474,6 +490,7 @@
       <div class="controls-right">
         <button class="btn" id="print-btn" type="button"><i class="ti ti-printer"></i> Imprimer / PDF</button>
         <button class="btn" id="export-btn" type="button"><i class="ti ti-file-spreadsheet"></i> Exporter Excel</button>
+        <button class="btn admin-only" id="duplicates-btn" type="button"><i class="ti ti-copy"></i> Doublons <span id="duplicates-count-badge"></span></button>
         <button class="btn admin-only" id="admin-tools-btn" type="button"><i class="ti ti-settings"></i> Gestion</button>
         <button class="btn btn-primary admin-only" id="add-btn" type="button"><i class="ti ti-plus"></i> Ajouter</button>
       </div>
@@ -521,7 +538,11 @@
       <div class="field"><label for="f-nom">Nom *</label><input type="text" id="f-nom" autocomplete="family-name"></div>
     </div>
     <div class="form-row">
-      <div class="field"><label for="f-service">Service</label><select id="f-service"><option value="">Sans service</option></select></div>
+      <div class="field">
+        <label>Service(s)</label>
+        <div class="repeat-list" id="f-services-list"></div>
+        <div class="repeat-actions"><button class="btn btn-sm" type="button" id="add-service-btn"><i class="ti ti-plus"></i> Ajouter un service</button></div>
+      </div>
       <div class="field">
         <label>Fonction(s)</label>
         <div class="repeat-list" id="f-functions-list"></div>
@@ -597,6 +618,7 @@
     <div class="tabs" role="tablist">
       <button class="tab-btn active" type="button" data-tab="settings-panel">Listes</button>
       <button class="tab-btn" type="button" data-tab="import-panel">Import Excel</button>
+      <button class="tab-btn" type="button" data-tab="duplicates-panel">Doublons</button>
       <button class="tab-btn" type="button" data-tab="history-panel">Historique</button>
       <button class="tab-btn" type="button" data-tab="reports-panel">Signalements</button>
     </div>
@@ -620,6 +642,12 @@
       </div>
       <div class="import-preview" id="import-preview"></div>
       <div class="modal-actions"><button class="btn btn-primary" type="button" id="run-import-btn" disabled><i class="ti ti-upload"></i> Importer</button></div>
+    </div>
+
+    <div class="tab-panel" id="duplicates-panel">
+      <div class="notice warning"><i class="ti ti-copy"></i><span>Les groupes ci-dessous ont le même prénom et le même nom. Vérifiez les informations, choisissez la fiche à conserver puis fusionnez. Les autres fiches seront désactivées, jamais supprimées.</span></div>
+      <div class="duplicate-summary"><strong id="duplicates-summary">0 groupe à vérifier</strong><button class="btn btn-sm" type="button" id="refresh-duplicates-btn"><i class="ti ti-refresh"></i> Actualiser</button></div>
+      <div class="duplicate-list" id="duplicates-list"></div>
     </div>
 
     <div class="tab-panel" id="history-panel"><div class="history-list" id="history-list"></div></div>
@@ -649,7 +677,7 @@ let meta = {};
 let editId = null;
 let reportId = null;
 let adminToken = sessionStorage.getItem("annuaireAdminToken") || "";
-let adminData = { history: [], reports: [] };
+let adminData = { history: [], reports: [], duplicates: [] };
 let importRows = [];
 let lastFocusedElement = null;
 
@@ -796,7 +824,7 @@ function normalizeRecord(record) {
     titre: record.titre || "",
     prenom: record.prenom || "",
     nom: record.nom || "",
-    service: record.service || "",
+    service: normalizeMultiValue(record.service),
     fonction: normalizeMultiValue(record.fonction),
     tel: flattenContactField(contacts, "tel") || normalizeMultiValue(record.tel, true),
     abrege: flattenContactField(contacts, "abrege") || (record.abrege ? String(record.abrege) : ""),
@@ -838,7 +866,7 @@ function normalizeSettings(raw) {
 function deriveSettings(records) {
   return {
     sites: cleanList(records.flatMap(r => splitValues(r.site)).join("\n")),
-    services: cleanList(records.map(r => r.service).join("\n")),
+    services: cleanList(records.flatMap(r => splitValues(r.service)).join("\n")),
     functions: cleanList(records.flatMap(r => splitValues(r.fonction)).join("\n"))
   };
 }
@@ -884,17 +912,16 @@ function formatDate(value, includeTime = false) {
     : {day:"2-digit", month:"2-digit", year:"numeric"}).format(date);
 }
 function isIncomplete(record) {
-  return !splitValues(record.site).length || !record.prenom || !record.nom || !(record.contacts || []).length || !record.service || !splitValues(record.fonction).length;
+  return !splitValues(record.site).length || !record.prenom || !record.nom || !(record.contacts || []).length || !splitValues(record.service).length || !splitValues(record.fonction).length;
 }
 
 function populateFilters() {
   const availableSites = cleanList([...settings.sites, ...staff.flatMap(r => splitValues(r.site))].join("\n"));
-  const availableServices = cleanList([...settings.services, ...staff.map(r => r.service)].join("\n"));
+  const availableServices = cleanList([...settings.services, ...staff.flatMap(r => splitValues(r.service))].join("\n"));
   fillSelect($("filterSite"), availableSites, "Tous les sites", $("filterSite").value);
   fillSelect($("filterService"), availableServices, "Tous les services", $("filterService").value);
   fillSelect($("print-site"), availableSites, "Tous les sites", $("print-site").value);
   fillSelect($("print-service"), availableServices, "Tous les services", $("print-service").value);
-  fillSelect($("f-service"), settings.services, "Sans service", $("f-service").value);
 }
 function fillSelect(select, values, emptyLabel, current) {
   const items = [];
@@ -931,6 +958,11 @@ function compareServices(serviceA, serviceB, collator) {
   if (priorityA !== priorityB) return priorityA - priorityB;
   return collator.compare(serviceA || "", serviceB || "");
 }
+function primaryService(serviceValue, collator = new Intl.Collator("fr", {sensitivity:"base", numeric:true})) {
+  const services = splitValues(serviceValue);
+  if (!services.length) return "";
+  return services.slice().sort((a,b) => compareServices(a,b,collator))[0];
+}
 
 function applyFilters() {
   const queryTokens = normalizeText($("search").value).split(" ").filter(Boolean);
@@ -945,7 +977,7 @@ function applyFilters() {
     const haystack = normalizeText([record.nom,record.prenom,record.fonction,record.service,record.site,record.tel,record.abrege,record.commentaire,record.titre].join(" "));
     const matchesQuery = queryTokens.every(token => haystack.includes(token));
     const matchesSite = !site || valuesContain(record.site, site);
-    const matchesService = !service || record.service === service;
+    const matchesService = !service || valuesContain(record.service, service);
     const matchesCompleteness = !completeness || (completeness === "complete" ? !isIncomplete(record) : isIncomplete(record));
     const matchesStatus = status === "all" || (status === "active" ? record.actif : !record.actif);
     return matchesQuery && matchesSite && matchesService && matchesCompleteness && matchesStatus;
@@ -954,7 +986,7 @@ function applyFilters() {
   const collator = new Intl.Collator("fr", {sensitivity:"base", numeric:true});
   filtered.sort((a,b) => {
     if (sortBy === "service") {
-      return compareServices(a.service, b.service, collator)
+      return compareServices(primaryService(a.service, collator), primaryService(b.service, collator), collator)
         || (displayOrderValue(a) - displayOrderValue(b))
         || collator.compare(recordSortLabel(a), recordSortLabel(b));
     }
@@ -971,7 +1003,7 @@ function renderStats() {
   const isAdmin = document.body.classList.contains("is-admin");
   const visibleBase = isAdmin ? staff : staff.filter(r => r.actif);
   const activeCount = staff.filter(r => r.actif).length;
-  const servicesCount = new Set(visibleBase.map(r => r.service).filter(Boolean)).size;
+  const servicesCount = new Set(visibleBase.flatMap(r => splitValues(r.service))).size;
   const sitesCount = new Set(visibleBase.flatMap(r => splitValues(r.site))).size;
 
   if (isAdmin) {
@@ -1039,7 +1071,7 @@ function renderRow(record) {
       </div>
     </td>
     <td>${renderFunctionList(splitValues(record.fonction))}</td>
-    <td class="service-cell">${record.service ? escHtml(record.service) : '<span class="muted">—</span>'}</td>
+    <td class="service-cell">${renderServiceList(splitValues(record.service))}</td>
     <td>${renderPhoneContacts(contacts)}</td>
     <td>${renderExtensionContacts(contacts)}</td>
     <td class="hide-mobile nowrap">${record.updatedAt ? `<span title="${escHtml(record.updatedBy || "")}">${escHtml(formatDate(record.updatedAt))}</span>` : '<span class="muted">—</span>'}</td>
@@ -1058,6 +1090,10 @@ function renderRow(record) {
 }
 
 function renderFunctionList(values) {
+  if (!values.length) return '<span class="muted">—</span>';
+  return `<div class="function-lines">${values.map(value => `<span>${escHtml(value)}</span>`).join("")}</div>`;
+}
+function renderServiceList(values) {
   if (!values.length) return '<span class="muted">—</span>';
   return `<div class="function-lines">${values.map(value => `<span>${escHtml(value)}</span>`).join("")}</div>`;
 }
@@ -1129,6 +1165,28 @@ function openEdit(id) {
   openModal("member-modal", "f-prenom");
 }
 
+function serviceOptions(selected = "") {
+  const values = cleanList([...settings.services, selected].join("\n"));
+  return `<option value="">Sans service</option>` + values.map(value =>
+    `<option value="${escHtml(value)}"${normalizeText(value) === normalizeText(selected) ? " selected" : ""}>${escHtml(value)}</option>`
+  ).join("");
+}
+function addServiceRow(value = "") {
+  const row = document.createElement("div");
+  row.className = "repeat-row";
+  row.innerHTML = `<select class="service-input" aria-label="Service">${serviceOptions(value)}</select>
+    <button class="btn btn-sm btn-icon remove-repeat-btn" type="button" title="Retirer ce service" aria-label="Retirer ce service"><i class="ti ti-x"></i></button>`;
+  $("f-services-list").appendChild(row);
+}
+function renderServiceRows(values) {
+  $("f-services-list").innerHTML = "";
+  const list = uniqueValues(values);
+  (list.length ? list : [""]).forEach(addServiceRow);
+}
+function selectedServices() {
+  return uniqueValues([...$("f-services-list").querySelectorAll(".service-input")].map(select => select.value.trim()).filter(Boolean));
+}
+
 function functionOptions(selected = "") {
   const values = cleanList([...settings.functions, selected].join("\n"));
   return `<option value="">Sans fonction</option>` + values.map(value =>
@@ -1186,7 +1244,7 @@ function selectedContacts() {
 }
 
 function fillMemberForm(record) {
-  fillSelect($("f-service"), cleanList([...settings.services, record.service].join("\n")), "Sans service", record.service || "");
+  renderServiceRows(splitValues(record.service));
   renderFunctionRows(splitValues(record.fonction));
   renderContactRows(normalizeContacts(record.contacts, record.site, record.tel, record.abrege));
   $("f-titre").value = record.titre || "";
@@ -1203,6 +1261,7 @@ function clearFieldErrors() {
 }
 function validateMemberForm() {
   clearFieldErrors();
+  const services = selectedServices();
   const functions = selectedFunctions();
   const contacts = selectedContacts();
   const sites = uniqueValues(contacts.map(contact => contact.site).filter(Boolean));
@@ -1210,7 +1269,7 @@ function validateMemberForm() {
   const entry = {
     site: sites.join(", "), titre: $("f-titre").value,
     prenom: $("f-prenom").value.trim(), nom: $("f-nom").value.trim(),
-    service: $("f-service").value.trim(), fonction: functions.join(", "),
+    service: services.join(", "), fonction: functions.join(", "),
     contacts,
     tel: flattenContactField(contacts, "tel"),
     abrege: flattenContactField(contacts, "abrege"),
@@ -1294,7 +1353,7 @@ async function saveMember(force = false) {
       if (!editId && exact) {
         const merge = confirm(
           `${personLabel(exact)} existe déjà dans l’annuaire.\n\n` +
-          `Voulez-vous fusionner les nouveaux sites, fonctions, téléphones et numéros abrégés avec cette fiche ?`
+          `Voulez-vous fusionner les nouveaux sites, services, fonctions, téléphones et numéros abrégés avec cette fiche ?`
         );
         if (merge) {
           try {
@@ -1402,7 +1461,7 @@ async function enterAdmin(data, silent = false) {
   $("mode-badge").className = "mode-badge admin";
   $("mode-badge").innerHTML = '<i class="ti ti-shield-check"></i> Administration';
   $("admin-login-btn").style.display = "none";
-  adminData = {history: data.history || [], reports: data.reports || []};
+  adminData = {history: data.history || [], reports: data.reports || [], duplicates: data.duplicates || []};
   if (data.staff) staff = data.staff.map(normalizeRecord);
   if (data.settings) settings = normalizeSettings(data.settings);
   populateFilters();
@@ -1432,11 +1491,16 @@ async function refreshAdminData() {
   await enterAdmin(data, true);
 }
 
-function openAdminTools() {
+function activateAdminTab(panelId) {
+  document.querySelectorAll(".tab-btn").forEach(item => item.classList.toggle("active", item.dataset.tab === panelId));
+  document.querySelectorAll(".tab-panel").forEach(panel => panel.classList.toggle("active", panel.id === panelId));
+}
+function openAdminTools(panelId = "settings-panel") {
   $("settings-sites").value = settings.sites.join("\n");
   $("settings-services").value = settings.services.join("\n");
   $("settings-functions").value = settings.functions.join("\n");
   renderAdminData();
+  activateAdminTab(panelId);
   openModal("admin-modal", null);
 }
 function renderAdminData() {
@@ -1446,6 +1510,66 @@ function renderAdminData() {
   $("reports-list").innerHTML = adminData.reports.length ? adminData.reports.map(item => `
     <div class="history-item"><div class="history-main"><span class="history-action">${escHtml(item.person || "Signalement")}</span><span>${escHtml(formatDate(item.timestamp, true))}</span></div>
     <div>${escHtml(item.message || "")}</div><div class="history-meta">${escHtml(item.contact || "Anonyme")} · ${escHtml(item.status || "Nouveau")}</div></div>`).join("") : '<div class="empty"><i class="ti ti-message-report"></i>Aucun signalement.</div>';
+  renderDuplicateGroups();
+}
+
+function duplicateRecordDetails(record) {
+  const services = splitValues(record.service);
+  const functions = splitValues(record.fonction);
+  const contacts = normalizeContacts(record.contacts, record.site, record.tel, record.abrege);
+  const contactText = contacts.map(c => [c.site, c.tel, c.abrege ? `abrégé ${c.abrege}` : ""].filter(Boolean).join(" · ")).join(" | ");
+  return [
+    services.length ? `Service(s) : ${services.join(", ")}` : "Sans service",
+    functions.length ? `Fonction(s) : ${functions.join(", ")}` : "Sans fonction",
+    contactText || "Sans coordonnées"
+  ];
+}
+function renderDuplicateGroups() {
+  const groups = adminData.duplicates || [];
+  $("duplicates-summary").textContent = `${groups.length} groupe${groups.length > 1 ? "s" : ""} à vérifier`;
+  $("duplicates-count-badge").textContent = groups.length ? `(${groups.length})` : "";
+  if (!groups.length) {
+    $("duplicates-list").innerHTML = '<div class="empty"><i class="ti ti-circle-check"></i>Aucun doublon potentiel à vérifier.</div>';
+    return;
+  }
+  $("duplicates-list").innerHTML = groups.map(group => {
+    const confidenceClass = group.confidence === "probable" ? "badge-probable" : "badge-review";
+    const confidenceLabel = group.confidence === "probable" ? "Très probable" : "À vérifier";
+    return `<section class="duplicate-card" data-duplicate-key="${escHtml(group.key)}">
+      <div class="duplicate-card-head"><div><div class="duplicate-card-name">${escHtml(group.label)}</div><div class="history-meta">${group.records.length} fiches actives</div></div><span class="badge ${confidenceClass}">${confidenceLabel}</span></div>
+      <div class="duplicate-records">${group.records.map((record, index) => `
+        <label class="duplicate-record">
+          <input type="radio" name="duplicate-target-${escHtml(group.key)}" value="${escHtml(record.uuid || record.id)}" ${index === 0 ? "checked" : ""}>
+          <span class="duplicate-record-main"><strong>${escHtml(personLabel(record))}</strong><span class="duplicate-record-meta">${duplicateRecordDetails(record).map(line => `<span>${escHtml(line)}</span>`).join("<span>•</span>")}</span></span>
+        </label>`).join("")}</div>
+      <div class="duplicate-card-actions"><button class="btn btn-sm" type="button" data-duplicate-action="ignore" data-key="${escHtml(group.key)}"><i class="ti ti-eye-off"></i> Ignorer</button><button class="btn btn-sm btn-primary" type="button" data-duplicate-action="merge" data-key="${escHtml(group.key)}"><i class="ti ti-git-merge"></i> Fusionner</button></div>
+    </section>`;
+  }).join("");
+}
+async function mergeDuplicateGroup(groupKey) {
+  const group = (adminData.duplicates || []).find(item => item.key === groupKey);
+  if (!group) return;
+  const card = [...$("duplicates-list").querySelectorAll(".duplicate-card")].find(item => item.dataset.duplicateKey === groupKey);
+  const targetUuid = card?.querySelector('input[type="radio"]:checked')?.value;
+  if (!targetUuid) { toast("Choisissez la fiche à conserver.", "error"); return; }
+  const sourceUuids = group.records.map(record => record.uuid || record.id).filter(uuid => uuid !== targetUuid);
+  if (!sourceUuids.length) return;
+  if (!confirm(`Fusionner ${group.records.length} fiches de ${group.label} ?\n\nLa fiche sélectionnée sera conservée. Les autres seront désactivées, sans suppression.`)) return;
+  try {
+    await apiPost({action:"mergeExisting", token:adminToken, targetUuid, sourceUuids});
+    toast("Doublon fusionné. Sites, services, fonctions et coordonnées ont été réunis.");
+    await refreshAdminData();
+  } catch (error) { toast(`Fusion impossible : ${error.message}`, "error"); }
+}
+async function ignoreDuplicateGroup(groupKey) {
+  const group = (adminData.duplicates || []).find(item => item.key === groupKey);
+  if (!group) return;
+  if (!confirm(`Ignorer ce groupe de doublons pour ${group.label} ?`)) return;
+  try {
+    await apiPost({action:"ignoreDuplicate", token:adminToken, groupKey});
+    toast("Ce groupe de doublons a été ignoré.");
+    await refreshAdminData();
+  } catch (error) { toast(`Impossible d’ignorer ce groupe : ${error.message}`, "error"); }
 }
 async function saveSettings() {
   const payload = {
@@ -1490,9 +1614,9 @@ function openPrint() { openModal("print-modal", "print-site"); }
 function generatePrintView() {
   const site = $("print-site").value;
   const serviceFilter = $("print-service").value;
-  const list = staff.filter(r => r.actif && (!site || valuesContain(r.site, site)) && (!serviceFilter || r.service === serviceFilter));
+  const list = staff.filter(r => r.actif && (!site || valuesContain(r.site, site)) && (!serviceFilter || valuesContain(r.service, serviceFilter)));
   const grouped = {};
-  list.forEach(record => { const key = record.service || "Sans service"; (grouped[key] ||= []).push(record); });
+  list.forEach(record => { const key = primaryService(record.service) || "Sans service"; (grouped[key] ||= []).push(record); });
   const collator = new Intl.Collator("fr", {sensitivity:"base"});
   Object.values(grouped).forEach(group => group.sort((a,b) =>
     (displayOrderValue(a) - displayOrderValue(b)) || collator.compare(recordSortLabel(a), recordSortLabel(b))
@@ -1597,8 +1721,16 @@ $("print-btn").addEventListener("click", openPrint);
 $("export-btn").addEventListener("click", exportExcel);
 $("generate-print-btn").addEventListener("click", generatePrintView);
 $("add-btn").addEventListener("click", openAdd);
+$("add-service-btn").addEventListener("click", () => addServiceRow(""));
 $("add-function-btn").addEventListener("click", () => addFunctionRow(""));
 $("add-contact-btn").addEventListener("click", () => addContactRow({}));
+$("f-services-list").addEventListener("click", event => {
+  const button = event.target.closest(".remove-repeat-btn");
+  if (!button) return;
+  const rows = $("f-services-list").querySelectorAll(".repeat-row");
+  if (rows.length === 1) rows[0].querySelector("select").value = "";
+  else button.closest(".repeat-row").remove();
+});
 $("f-functions-list").addEventListener("click", event => {
   const button = event.target.closest(".remove-repeat-btn");
   if (!button) return;
@@ -1623,12 +1755,21 @@ $("admin-login-btn").addEventListener("click", () => openModal("login-modal", "a
 $("login-submit-btn").addEventListener("click", loginAdmin);
 $("admin-password").addEventListener("keydown", e => { if (e.key === "Enter") loginAdmin(); });
 $("admin-logout-btn").addEventListener("click", logoutAdmin);
-$("admin-tools-btn").addEventListener("click", openAdminTools);
+$("admin-tools-btn").addEventListener("click", () => openAdminTools("settings-panel"));
+$("duplicates-btn").addEventListener("click", () => openAdminTools("duplicates-panel"));
+$("refresh-duplicates-btn").addEventListener("click", refreshAdminData);
 $("save-settings-btn").addEventListener("click", saveSettings);
 $("report-submit-btn").addEventListener("click", submitReport);
 $("choose-import-btn").addEventListener("click", () => $("import-file").click());
 $("import-file").addEventListener("change", e => handleImportFile(e.target.files[0]));
 $("run-import-btn").addEventListener("click", runImport);
+
+$("duplicates-list").addEventListener("click", event => {
+  const button = event.target.closest("[data-duplicate-action]");
+  if (!button) return;
+  if (button.dataset.duplicateAction === "merge") mergeDuplicateGroup(button.dataset.key);
+  if (button.dataset.duplicateAction === "ignore") ignoreDuplicateGroup(button.dataset.key);
+});
 
 $("directory-body").addEventListener("click", event => {
   const copy = event.target.closest("[data-copy]");
@@ -1670,10 +1811,7 @@ document.addEventListener("keydown", event => {
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
   }
 });
-document.querySelectorAll(".tab-btn").forEach(button => button.addEventListener("click", () => {
-  document.querySelectorAll(".tab-btn").forEach(item => item.classList.toggle("active", item === button));
-  document.querySelectorAll(".tab-panel").forEach(panel => panel.classList.toggle("active", panel.id === button.dataset.tab));
-}));
+document.querySelectorAll(".tab-btn").forEach(button => button.addEventListener("click", () => activateAdminTab(button.dataset.tab)));
 
 setupImport();
 // Tri par défaut garanti à chaque nouvelle ouverture : Service → ordre → nom/libellé.
